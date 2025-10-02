@@ -56,76 +56,76 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew clean test --tests "metatest.unit.*" --info -DrunWithMetatest=false
 
-integration_tests:
-  needs: unit_tests
-  runs-on: ubuntu-latest
-  permissions:
-    contents: read
-  steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up JDK 18
-      uses: actions/setup-java@v4
-      with:
-        java-version: '18'
-        distribution: 'temurin'
-
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-
-    - name: Pull latest WireMock image
-      run: docker pull wiremock/wiremock:latest
-
-    - name: Start a WireMock server for mocked REST api
-      run: |
-        docker run -d --name wiremock-mocked-rest-api -p 8089:8089 \
-          -v $GITHUB_WORKSPACE/lib/src/test/resources/mappings:/home/wiremock/mappings \
-          wiremock/wiremock:latest --port 8089 --verbose
-
-    - name: Run Integration Tests
-      run: ./gradlew clean test --tests "metatest.integration.*" --info -DrunWithMetatest=true
-
-
-  # dependency-submission:
-
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: write
-
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - name: Set up JDK 18
-  #     uses: actions/setup-java@v4
-  #     with:
-  #       java-version: '18'
-  #       distribution: 'temurin'
-
-  #   # Generates and submits a dependency graph, enabling Dependabot Alerts for all project dependencies.
-  #   # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
-  #   - name: Generate and submit dependency graph
-  #     uses: gradle/actions/dependency-submission@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
-publish:
-  needs: unit_tests
-  runs-on: ubuntu-latest
-  permissions:
-    contents: read
-    packages: write
-  steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 18
-      uses: actions/setup-java@v4
-      with:
-        java-version: '18'
-        distribution: 'temurin'
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    - name: Publish package
-      run: ./gradlew publish
-      env:
-        GITHUB_ACTOR: ${{ github.actor }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  integration_tests:
+    needs: unit_tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+  
+      - name: Set up JDK 18
+        uses: actions/setup-java@v4
+        with:
+          java-version: '18'
+          distribution: 'temurin'
+  
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582
+  
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+  
+      - name: Pull latest WireMock image
+        run: docker pull wiremock/wiremock:latest
+  
+      - name: Start a WireMock server for mocked REST api
+        run: |
+          docker run -d --name wiremock-mocked-rest-api -p 8089:8089 \
+            -v $GITHUB_WORKSPACE/lib/src/test/resources/mappings:/home/wiremock/mappings \
+            wiremock/wiremock:latest --port 8089 --verbose
+  
+      - name: Run Integration Tests
+        run: ./gradlew clean test --tests "metatest.integration.*" --info -DrunWithMetatest=true
+  
+  
+    # dependency-submission:
+  
+    #   runs-on: ubuntu-latest
+    #   permissions:
+    #     contents: write
+  
+    #   steps:
+    #   - uses: actions/checkout@v4
+    #   - name: Set up JDK 18
+    #     uses: actions/setup-java@v4
+    #     with:
+    #       java-version: '18'
+    #       distribution: 'temurin'
+  
+    #   # Generates and submits a dependency graph, enabling Dependabot Alerts for all project dependencies.
+    #   # See: https://github.com/gradle/actions/blob/main/dependency-submission/README.md
+    #   - name: Generate and submit dependency graph
+    #     uses: gradle/actions/dependency-submission@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+  publish:
+    needs: unit_tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 18
+        uses: actions/setup-java@v4
+        with:
+          java-version: '18'
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Publish package
+        run: ./gradlew publish
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
