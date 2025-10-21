@@ -14,6 +14,7 @@ public class GlobalTestExecutionListener implements TestExecutionListener {
             executed = true;
             System.out.println("All tests completed - Sending results to API...");
 //            FaultSimulationReport.getInstance().sendResultsToAPI();
+            FaultSimulationReport.getInstance().createJSONReport();
         }
     }
 }
