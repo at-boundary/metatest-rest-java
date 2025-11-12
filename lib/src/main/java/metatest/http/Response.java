@@ -8,7 +8,13 @@ public interface Response {
     Map<String, Object> getHeaders();
     String getBody();
 
-    void setBody(String body); // Consider deprecating this in favor of withBody
+    /**
+     * Returns the HTTP status code of the response.
+     * @return The HTTP status code (e.g., 200, 404, 500)
+     */
+    int getStatusCode();
+
+    void setBody(String body);
 
     /**
      * Creates a new Response instance with a modified body.

@@ -15,7 +15,7 @@ public class FaultSimulationReport {
     private static final FaultSimulationReport INSTANCE = new FaultSimulationReport();
     private static final String DEFAULT_REPORT_PATH = "fault_simulation_report.json";
 
-    private final Map<String, Map<String, Map<String, List<TestLevelSimulationResults>>>> report = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Map<String, FaultSimulationResult>>> report = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
     private final FaultStrategyApiClient apiClient;
     private LocalDateTime executionStartTime;
@@ -40,8 +40,8 @@ public class FaultSimulationReport {
 
         report.computeIfAbsent(endpoint, k -> new ConcurrentHashMap<>())
                 .computeIfAbsent(field, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(faultType, k -> Collections.synchronizedList(new ArrayList<>()))
-                .add(result);
+                .computeIfAbsent(faultType, k -> new FaultSimulationResult())
+                .addTestResult(result);
     }
 
     public void sendResultsToAPI() {
@@ -84,25 +84,25 @@ public class FaultSimulationReport {
         request.setAgentVersion("1.0.0-dev");
         
         Map<String, SubmitSimulationResultsRequest.EndpointResults> convertedResults = new HashMap<>();
-        
-        for (Map.Entry<String, Map<String, Map<String, List<TestLevelSimulationResults>>>> endpointEntry : report.entrySet()) {
+
+        for (Map.Entry<String, Map<String, Map<String, FaultSimulationResult>>> endpointEntry : report.entrySet()) {
             String endpoint = endpointEntry.getKey();
-            Map<String, Map<String, List<TestLevelSimulationResults>>> fieldsData = endpointEntry.getValue();
-            
+            Map<String, Map<String, FaultSimulationResult>> fieldsData = endpointEntry.getValue();
+
             SubmitSimulationResultsRequest.EndpointResults endpointResults = new SubmitSimulationResultsRequest.EndpointResults();
             Map<String, SubmitSimulationResultsRequest.FieldResults> fieldResultsMap = new HashMap<>();
-            
-            for (Map.Entry<String, Map<String, List<TestLevelSimulationResults>>> fieldEntry : fieldsData.entrySet()) {
+
+            for (Map.Entry<String, Map<String, FaultSimulationResult>> fieldEntry : fieldsData.entrySet()) {
                 String fieldName = fieldEntry.getKey();
-                Map<String, List<TestLevelSimulationResults>> faultTypesData = fieldEntry.getValue();
-                
+                Map<String, FaultSimulationResult> faultTypesData = fieldEntry.getValue();
+
                 SubmitSimulationResultsRequest.FieldResults fieldResults = new SubmitSimulationResultsRequest.FieldResults();
-                
-                for (Map.Entry<String, List<TestLevelSimulationResults>> faultTypeEntry : faultTypesData.entrySet()) {
+
+                for (Map.Entry<String, FaultSimulationResult> faultTypeEntry : faultTypesData.entrySet()) {
                     String faultType = faultTypeEntry.getKey();
-                    List<TestLevelSimulationResults> testResults = faultTypeEntry.getValue();
-                    
-                    SubmitSimulationResultsRequest.FaultTypeResult faultTypeResult = convertFaultTypeResult(testResults);
+                    FaultSimulationResult faultSimResult = faultTypeEntry.getValue();
+
+                    SubmitSimulationResultsRequest.FaultTypeResult faultTypeResult = convertFaultTypeResult(faultSimResult.getDetails());
                     
                     switch (faultType) {
                         case "null_field":
@@ -236,11 +236,11 @@ public class FaultSimulationReport {
     }
     
     private String extractTestSuiteName() {
-        for (Map<String, Map<String, List<TestLevelSimulationResults>>> endpointData : report.values()) {
-            for (Map<String, List<TestLevelSimulationResults>> fieldData : endpointData.values()) {
-                for (List<TestLevelSimulationResults> testResults : fieldData.values()) {
-                    if (!testResults.isEmpty()) {
-                        String fullTestName = testResults.get(0).getTest();
+        for (Map<String, Map<String, FaultSimulationResult>> endpointData : report.values()) {
+            for (Map<String, FaultSimulationResult> fieldData : endpointData.values()) {
+                for (FaultSimulationResult faultResult : fieldData.values()) {
+                    if (!faultResult.isEmpty()) {
+                        String fullTestName = faultResult.getDetails().get(0).getTest();
                         // Extract class name from method name (e.g., "testCreatePayment" -> "PaymentTest")
                         return fullTestName.replaceAll("test.*", "") + "Test";
                     }

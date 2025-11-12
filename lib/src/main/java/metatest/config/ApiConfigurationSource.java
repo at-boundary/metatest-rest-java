@@ -89,4 +89,20 @@ public class ApiConfigurationSource implements ConfigurationSource {
     public String getSourceName() {
         return "API";
     }
+
+    @Override
+    public SimulatorConfig getConfig() {
+        // API mode doesn't use full SimulatorConfig yet - return minimal config
+        // TODO: Fetch full config from API in future
+        SimulatorConfig config = new SimulatorConfig();
+
+        // Set default simulation settings for API mode
+        SimulatorConfig.Simulation simulation = new SimulatorConfig.Simulation();
+        simulation.only_success_responses = true;  // Default: only 2xx
+        simulation.min_response_fields = 1;
+        simulation.skip_if_contains_fields = List.of("error", "detail", "message", "errorMessage");
+        config.simulation = simulation;
+
+        return config;
+    }
 }

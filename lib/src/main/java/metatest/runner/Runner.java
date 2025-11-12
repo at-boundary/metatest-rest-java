@@ -12,6 +12,7 @@ import metatest.injection.MissingFieldStrategy;
 import metatest.injection.NullFieldStrategy;
 import metatest.report.FaultSimulationReport;
 import metatest.report.TestLevelSimulationResults;
+import metatest.utils.EndpointPatternNormalizer;
 import org.aspectj.lang.ProceedingJoinPoint;
 
 import java.io.IOException;
@@ -51,12 +52,25 @@ public final class Runner {
 
         String testName = joinPoint.getSignature().getName();
         String endpointPath = URI.create(originalRequest.getUrl()).getPath();
+        String endpointPattern = EndpointPatternNormalizer.normalize(endpointPath);
         String requestBody = originalRequest.getBody();
 
-        System.out.printf("%n[Metatest-Sim] === Starting simulations for test: '%s' on endpoint: '%s' ===%n", testName, endpointPath);
+        System.out.printf("%n[Metatest-Sim] === Starting simulations for test: '%s' on endpoint: '%s' (pattern: '%s') ===%n",
+                testName, endpointPath, endpointPattern);
         if (requestBody != null && !requestBody.trim().isEmpty()) {
             System.out.printf("[Metatest-Sim] Original request body: %s%n", requestBody);
         }
+
+        // Check if we should simulate this response based on status code and content
+        int statusCode = originalResponse.getStatusCode();
+        Map<String, Object> responseMap = originalResponse.getResponseAsMap();
+
+        if (!SimulatorConfig.shouldSimulateResponse(statusCode, responseMap)) {
+            System.out.printf("[Metatest-Sim] === Skipping simulations for test: '%s' (status: %d) ===%n%n", testName, statusCode);
+            return;
+        }
+
+        System.out.printf("[Metatest-Sim] Response status: %d (simulation will proceed)%n", statusCode);
 
         for (String field : originalResponse.getResponseAsMap().keySet()) {
             for (FaultCollection fault : ENABLED_FAULTS) {
@@ -78,7 +92,7 @@ public final class Runner {
                     context.clearSimulation();
                 }
 
-                REPORT.recordResult(endpointPath, field, fault.name(), testLevelResults);
+                REPORT.recordResult(endpointPattern, field, fault.name(), testLevelResults);
             }
         }
         System.out.printf("[Metatest-Sim] === Completed all simulations for test: '%s' ===%n%n", testName);

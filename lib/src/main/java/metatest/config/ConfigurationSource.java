@@ -15,4 +15,10 @@ public interface ConfigurationSource {
 
 
     String getSourceName();
+
+    /**
+     * Returns the full configuration object.
+     * @return The SimulatorConfig instance
+     */
+    SimulatorConfig getConfig();
 }

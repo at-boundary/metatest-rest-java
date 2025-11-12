@@ -131,4 +131,9 @@ public class LocalConfigurationSource implements ConfigurationSource {
     public String getSourceName() {
         return "Local YAML";
     }
+
+    @Override
+    public SimulatorConfig getConfig() {
+        return config;
+    }
 }

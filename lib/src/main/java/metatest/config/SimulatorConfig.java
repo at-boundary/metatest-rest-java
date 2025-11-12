@@ -4,10 +4,12 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class SimulatorConfig {
     public Faults faults;
+    public Simulation simulation;
     public Semantics semantics;
     public SemanticFaults semanticFaults;
     public QualityAnalysis qualityAnalysis;
@@ -194,6 +196,14 @@ public class SimulatorConfig {
     }
 
     @Data
+    public static class Simulation {
+        public List<Integer> allowed_status_codes;
+        public boolean only_success_responses;
+        public int min_response_fields;
+        public List<String> skip_if_contains_fields;
+    }
+
+    @Data
     public static class Report {
         public String format;
         public String output_path;
@@ -314,5 +324,56 @@ public class SimulatorConfig {
 
     public static boolean isTestExcluded(String testName){
         return configSource.isTestExcluded(testName);
+    }
+
+    /**
+     * Checks if a response should have fault simulation based on its status code and content.
+     *
+     * @param statusCode The HTTP status code of the response
+     * @param responseMap The parsed response body as a map
+     * @return true if simulation should proceed, false if it should be skipped
+     */
+    public static boolean shouldSimulateResponse(int statusCode, Map<String, Object> responseMap) {
+        SimulatorConfig config = configSource.getConfig();
+
+        if (config == null || config.simulation == null) {
+            return statusCode >= 200 && statusCode < 300;
+        }
+
+        Simulation simConfig = config.simulation;
+
+        if (simConfig.only_success_responses) {
+            if (statusCode < 200 || statusCode >= 300) {
+                System.out.println("[Metatest-Sim] Skipping simulation - non-success status code: " + statusCode);
+                return false;
+            }
+        } else if (simConfig.allowed_status_codes != null && !simConfig.allowed_status_codes.isEmpty()) {
+            if (!simConfig.allowed_status_codes.contains(statusCode)) {
+                System.out.println("[Metatest-Sim] Skipping simulation - status code not in allowed list: " + statusCode);
+                return false;
+            }
+        }
+
+        if (responseMap == null || responseMap.isEmpty()) {
+            if (simConfig.min_response_fields > 0) {
+                System.out.println("[Metatest-Sim] Skipping simulation - empty response body");
+                return false;
+            }
+        } else if (responseMap.size() < simConfig.min_response_fields) {
+            System.out.println("[Metatest-Sim] Skipping simulation - response has fewer than " +
+                simConfig.min_response_fields + " fields (" + responseMap.size() + " found)");
+            return false;
+        }
+
+        if (simConfig.skip_if_contains_fields != null && responseMap != null) {
+            for (String errorField : simConfig.skip_if_contains_fields) {
+                if (responseMap.containsKey(errorField)) {
+                    System.out.println("[Metatest-Sim] Skipping simulation - response contains error field: " + errorField);
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 }
