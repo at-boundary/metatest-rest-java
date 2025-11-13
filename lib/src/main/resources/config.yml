@@ -43,6 +43,10 @@ simulation:
   # If true, only simulate on 2xx success responses (overrides allowed_status_codes)
   only_success_responses: true
 
+  # Skip simulation on collection responses (arrays like [{...}, {...}])
+  # Collection responses have different structure and require different fault strategies
+  skip_collections_response: true
+
   # Minimum number of fields required in response to run simulation
   # Set to 0 to simulate on all responses, even empty ones
   min_response_fields: 1

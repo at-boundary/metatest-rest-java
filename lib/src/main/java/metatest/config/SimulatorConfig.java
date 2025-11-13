@@ -199,6 +199,7 @@ public class SimulatorConfig {
     public static class Simulation {
         public List<Integer> allowed_status_codes;
         public boolean only_success_responses;
+        public boolean skip_collections_response;
         public int min_response_fields;
         public List<String> skip_if_contains_fields;
     }
@@ -331,13 +332,21 @@ public class SimulatorConfig {
      *
      * @param statusCode The HTTP status code of the response
      * @param responseMap The parsed response body as a map
+     * @param responseBody The raw response body (to check if it's a collection)
      * @return true if simulation should proceed, false if it should be skipped
      */
-    public static boolean shouldSimulateResponse(int statusCode, Map<String, Object> responseMap) {
+    public static boolean shouldSimulateResponse(int statusCode, Map<String, Object> responseMap, String responseBody) {
         SimulatorConfig config = configSource.getConfig();
 
+        // If no simulation config, default to only 2xx responses and skip collections
         if (config == null || config.simulation == null) {
-            return statusCode >= 200 && statusCode < 300;
+            boolean is2xx = statusCode >= 200 && statusCode < 300;
+            boolean isCollection = isCollectionResponse(responseBody);
+            if (isCollection) {
+                System.out.println("[Metatest-Sim] Skipping simulation - response is a collection (array)");
+                return false;
+            }
+            return is2xx;
         }
 
         Simulation simConfig = config.simulation;
@@ -352,6 +361,11 @@ public class SimulatorConfig {
                 System.out.println("[Metatest-Sim] Skipping simulation - status code not in allowed list: " + statusCode);
                 return false;
             }
+        }
+
+        if (simConfig.skip_collections_response && isCollectionResponse(responseBody)) {
+            System.out.println("[Metatest-Sim] Skipping simulation - response is a collection (array)");
+            return false;
         }
 
         if (responseMap == null || responseMap.isEmpty()) {
@@ -375,5 +389,21 @@ public class SimulatorConfig {
         }
 
         return true;
+    }
+
+    /**
+     * Checks if a response body represents a collection (array) rather than a single object.
+     *
+     * @param responseBody The raw response body string
+     * @return true if the response is a JSON array
+     */
+    private static boolean isCollectionResponse(String responseBody) {
+        if (responseBody == null || responseBody.trim().isEmpty()) {
+            return false;
+        }
+
+        // Trim whitespace and check if response starts with '[' (JSON array)
+        String trimmed = responseBody.trim();
+        return trimmed.startsWith("[");
     }
 }

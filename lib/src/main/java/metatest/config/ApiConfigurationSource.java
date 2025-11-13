@@ -99,6 +99,7 @@ public class ApiConfigurationSource implements ConfigurationSource {
         // Set default simulation settings for API mode
         SimulatorConfig.Simulation simulation = new SimulatorConfig.Simulation();
         simulation.only_success_responses = true;  // Default: only 2xx
+        simulation.skip_collections_response = true;  // Default: skip arrays
         simulation.min_response_fields = 1;
         simulation.skip_if_contains_fields = List.of("error", "detail", "message", "errorMessage");
         config.simulation = simulation;

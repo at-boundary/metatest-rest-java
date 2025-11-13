@@ -64,8 +64,9 @@ public final class Runner {
         // Check if we should simulate this response based on status code and content
         int statusCode = originalResponse.getStatusCode();
         Map<String, Object> responseMap = originalResponse.getResponseAsMap();
+        String responseBody = originalResponse.getBody();
 
-        if (!SimulatorConfig.shouldSimulateResponse(statusCode, responseMap)) {
+        if (!SimulatorConfig.shouldSimulateResponse(statusCode, responseMap, responseBody)) {
             System.out.printf("[Metatest-Sim] === Skipping simulations for test: '%s' (status: %d) ===%n%n", testName, statusCode);
             return;
         }
