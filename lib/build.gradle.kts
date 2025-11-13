@@ -90,6 +90,7 @@ dependencies {
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2")
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.2")
     implementation("io.swagger.parser.v3:swagger-parser:2.1.22")
+    testImplementation("org.assertj:assertj-core:3.24.2")
 }
 
 tasks.test {

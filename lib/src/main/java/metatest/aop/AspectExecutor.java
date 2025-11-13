@@ -62,6 +62,12 @@ public class AspectExecutor {
 
     @Around("execution(* org.apache.http.impl.client.CloseableHttpClient.execute(..))")
     public Object interceptApacheHttpClient(ProceedingJoinPoint joinPoint) throws Throwable {
+        // Check if we're inside a @Test method (context exists)
+        // If not (e.g., @BeforeAll, @BeforeEach), just let the request proceed normally
+        if (!TestContextManager.hasContext()) {
+            return joinPoint.proceed(joinPoint.getArgs());
+        }
+
         TestContext context = TestContextManager.getContext();
         Object[] args = joinPoint.getArgs();
 

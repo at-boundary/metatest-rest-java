@@ -21,15 +21,15 @@ faults:
 
 url:
  exclude:
-  - '*/login*'
+  - '*/demo*'
 
 endpoints:
  exclude:
-  - '*/login*'
+  - '*/demo*'
 
 tests:
  exclude:
-  - '*login*'
+  - '*demo*'
 
 # Simulation settings
 simulation:
