@@ -27,3 +27,14 @@ coverage:
   # Aggregate by normalized pattern (/orders/{id}) vs literal (/orders/123)
   # Both are always captured, this controls the grouping
   aggregate_by_pattern: true
+
+  # Gap Analysis Configuration
+  gap_analysis:
+    # Enable gap analysis (requires OpenAPI spec)
+    enabled: true
+
+    # Path to OpenAPI specification file (JSON or YAML)
+    openapi_spec_path: "api-specs.yaml"
+
+    # Output file for gap analysis report
+    output_file: "gap_analysis.json"

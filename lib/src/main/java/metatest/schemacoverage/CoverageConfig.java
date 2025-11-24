@@ -27,6 +27,14 @@ public class CoverageConfig {
         private boolean include_request_body = true;
         private boolean include_response_body = false;
         private boolean aggregate_by_pattern = true;
+        private GapAnalysis gap_analysis;
+    }
+
+    @Data
+    public static class GapAnalysis {
+        private boolean enabled = false;
+        private String openapi_spec_path;
+        private String output_file = "gap_analysis.json";
     }
 
     private List<Pattern> excludePatterns;
@@ -123,5 +131,17 @@ public class CoverageConfig {
 
     public boolean shouldAggregateByPattern() {
         return coverage != null && coverage.aggregate_by_pattern;
+    }
+
+    public boolean isGapAnalysisEnabled() {
+        return coverage != null && coverage.gap_analysis != null && coverage.gap_analysis.enabled;
+    }
+
+    public String getGapAnalysisSpecPath() {
+        return coverage != null && coverage.gap_analysis != null ? coverage.gap_analysis.openapi_spec_path : null;
+    }
+
+    public String getGapAnalysisOutputFile() {
+        return coverage != null && coverage.gap_analysis != null ? coverage.gap_analysis.output_file : "gap_analysis.json";
     }
 }

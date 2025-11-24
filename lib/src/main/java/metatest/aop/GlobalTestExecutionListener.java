@@ -2,6 +2,7 @@ package metatest.aop;
 
 import metatest.report.FaultSimulationReport;
 import metatest.schemacoverage.Collector;
+import metatest.schemacoverage.GapAnalyzer;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestPlan;
 
@@ -17,6 +18,7 @@ public class GlobalTestExecutionListener implements TestExecutionListener {
 //            FaultSimulationReport.getInstance().sendResultsToAPI();
             FaultSimulationReport.getInstance().createJSONReport();
             Collector.saveCoverageReport();
+            GapAnalyzer.generateGapReport();
         }
     }
 }
