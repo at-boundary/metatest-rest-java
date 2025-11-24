@@ -24,7 +24,9 @@ public class AspectExecutor {
 
     @Around("execution(@org.junit.jupiter.api.Test * *(..))")
     public Object interceptTestMethod(ProceedingJoinPoint joinPoint) throws Throwable {
-        TestContextManager.setContext(new TestContext());
+        TestContext context = new TestContext();
+        context.setTestName(joinPoint.getSignature().getName());
+        TestContextManager.setContext(context);
         Object originalTestResult;
 
         try {
@@ -32,8 +34,6 @@ public class AspectExecutor {
             System.out.println("Executing original test run to capture baseline...");
 
             originalTestResult = joinPoint.proceed();
-
-            TestContext context = TestContextManager.getContext();
 
             if (context.getOriginalResponse() == null) {
                 System.out.println("No interceptable HTTP response was captured. Skipping fault simulation for this test.");
@@ -77,7 +77,7 @@ public class AspectExecutor {
             if (context.getOriginalResponse() == null) {
                 Request requestWrapper = HTTPFactory.createRequestFrom(httpRequest);
                 context.setOriginalRequest(requestWrapper);
-                Logger.parseResponse(httpRequest);
+                Logger.parseResponse(httpRequest, context.getTestName());
                 System.out.println("Original request captured: " + requestWrapper.getUrl());
             }
         }

@@ -1,0 +1,29 @@
+# Coverage Collection Configuration
+
+coverage:
+  # Enable coverage tracking
+  enabled: true
+
+  # Output file path
+  output_file: "schema_coverage.json"
+
+  # URLs to track (empty = track all)
+  urls:
+    # - "http://localhost:8080"
+    # - "https://api.example.com"
+
+  # Endpoint exclusion patterns (glob-style)
+  exclude_endpoints:
+    # - "*/health"
+    # - "*/metrics"
+    # - "/internal/*"
+
+  # Include request body in coverage report
+  include_request_body: true
+
+  # Include response body in coverage report (can be large)
+  include_response_body: false
+
+  # Aggregate by normalized pattern (/orders/{id}) vs literal (/orders/123)
+  # Both are always captured, this controls the grouping
+  aggregate_by_pattern: true

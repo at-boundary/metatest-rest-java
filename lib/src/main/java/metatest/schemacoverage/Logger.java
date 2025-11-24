@@ -1,5 +1,6 @@
 package metatest.schemacoverage;
 
+import metatest.utils.EndpointPatternNormalizer;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.util.EntityUtils;
@@ -7,33 +8,53 @@ import org.apache.http.util.EntityUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Logger {
 
+    public static void parseResponse(HttpRequestBase httpRequestBase, String testName) {
+        CoverageConfig config = CoverageConfig.getInstance();
 
-    public static void parseResponse(HttpRequestBase httpRequestBase) {
+        // Check if coverage is enabled
+        if (!config.isEnabled()) {
+            return;
+        }
 
         CollectorData collectorData = Collector.getData();
-
         String method = httpRequestBase.getMethod() != null ? httpRequestBase.getMethod().toUpperCase() : "UNKNOWN";
 
         try {
             String requestUri = httpRequestBase.getURI() != null ? httpRequestBase.getURI().toString() : "";
             URI uriObj = new URI(requestUri);
-            String endpoint = uriObj.getPath();
+            String literalPath = uriObj.getPath();
+
+            // Check if URL is tracked
+            if (!config.isUrlTracked(requestUri)) {
+                return;
+            }
 
             String baseUri = httpRequestBase.getURI() != null ? httpRequestBase.getURI().getHost() : "";
             URI baseUriObj = new URI(baseUri);
             String basePath = baseUriObj.getPath();
 
-            if (endpoint.startsWith(basePath)) {
-                endpoint = endpoint.substring(basePath.length());
-                if (endpoint.isEmpty()) {
-                    endpoint = "/";
+            if (literalPath.startsWith(basePath)) {
+                literalPath = literalPath.substring(basePath.length());
+                if (literalPath.isEmpty()) {
+                    literalPath = "/";
                 }
+            }
+
+            // Normalize endpoint pattern
+            String endpointPattern = config.shouldAggregateByPattern()
+                ? EndpointPatternNormalizer.normalize(literalPath)
+                : literalPath;
+
+            // Check if endpoint is excluded
+            if (config.isEndpointExcluded(endpointPattern)) {
+                return;
             }
 
             // Synchronize initialization to prevent race conditions
@@ -44,10 +65,13 @@ public class Logger {
                 }
             }
 
-            Map<String, Map<String, EndpointCall>> paths = collectorData.getPaths();
-            Map<String, EndpointCall> methodsMap = paths.computeIfAbsent(endpoint, k -> new ConcurrentHashMap<>());
+            Map<String, Map<String, EndpointMethodCoverage>> paths = collectorData.getPaths();
+            Map<String, EndpointMethodCoverage> methodsMap = paths.computeIfAbsent(endpointPattern, k -> new ConcurrentHashMap<>());
 
+            // Get or create coverage for this method
+            EndpointMethodCoverage methodCoverage = methodsMap.computeIfAbsent(method, k -> new EndpointMethodCoverage());
 
+            // Prepare endpoint call data
             Map<String, String> headers = new ConcurrentHashMap<>();
             if (httpRequestBase.getAllHeaders() != null) {
                 Arrays.stream(httpRequestBase.getAllHeaders()).forEach(header -> {
@@ -57,18 +81,20 @@ public class Logger {
                 });
             }
 
-            Object body = getRequestBody(httpRequestBase);
-
+            Object body = config.shouldIncludeRequestBody() ? getRequestBody(httpRequestBase) : null;
             Map<String, String> urlParams = getQueryParams(httpRequestBase);
 
+            // Create endpoint call
             EndpointCall endpointCall = new EndpointCall();
+            endpointCall.setTestName(testName);
+            endpointCall.setTimestamp(Instant.now().toString());
+            endpointCall.setUrl(literalPath);  // Store literal path
             endpointCall.setHeaders(headers);
             endpointCall.setBody(body);
             endpointCall.setUrlParameters(urlParams);
 
-            methodsMap.put(method, endpointCall);
-
-            FileUtils.saveToJsonFile("schema_coverage.json");
+            // Add call to coverage (aggregates automatically)
+            methodCoverage.addCall(endpointCall);
 
         } catch (URISyntaxException e) {
             e.printStackTrace();

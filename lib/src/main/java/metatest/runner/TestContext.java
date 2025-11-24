@@ -7,6 +7,7 @@ import metatest.http.Response;
 @Data
 public class TestContext {
 
+    private String testName;
     private Request originalRequest;
     private Response originalResponse;
     private Response simulatedResponse;

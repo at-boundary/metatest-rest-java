@@ -9,4 +9,21 @@ public class Collector {
         }
         return data;
     }
+
+    public static void saveCoverageReport() {
+        CoverageConfig config = CoverageConfig.getInstance();
+
+        // Only save if coverage is enabled
+        if (!config.isEnabled()) {
+            return;
+        }
+
+        String outputFile = config.getOutputFile();
+        if (outputFile != null && !outputFile.isEmpty()) {
+            System.out.println("Saving coverage report to: " + outputFile);
+            FileUtils.saveToJsonFile(outputFile);
+        } else {
+            System.out.println("Coverage output file not configured. Skipping coverage report.");
+        }
+    }
 }
