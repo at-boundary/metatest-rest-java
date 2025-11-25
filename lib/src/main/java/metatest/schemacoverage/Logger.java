@@ -1,5 +1,6 @@
 package metatest.schemacoverage;
 
+import metatest.http.Response;
 import metatest.utils.EndpointPatternNormalizer;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -15,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Logger {
 
-    public static void parseResponse(HttpRequestBase httpRequestBase, String testName) {
+    public static void parseResponse(HttpRequestBase httpRequestBase, String testName, Response response) {
         CoverageConfig config = CoverageConfig.getInstance();
 
         // Check if coverage is enabled
@@ -84,6 +85,30 @@ public class Logger {
             Object body = config.shouldIncludeRequestBody() ? getRequestBody(httpRequestBase) : null;
             Map<String, String> urlParams = getQueryParams(httpRequestBase);
 
+            // Extract response data
+            Integer responseStatusCode = null;
+            Map<String, String> responseHeaders = new ConcurrentHashMap<>();
+            Object responseBody = null;
+
+            if (response != null) {
+                // Get status code
+                responseStatusCode = response.getStatusCode();
+
+                // Get response headers
+                if (response.getHeaders() != null) {
+                    response.getHeaders().forEach((key, value) -> {
+                        if (key != null && value != null) {
+                            responseHeaders.put(key, value.toString());
+                        }
+                    });
+                }
+
+                // Get response body if configured
+                if (config.shouldIncludeResponseBody()) {
+                    responseBody = response.getBody();
+                }
+            }
+
             // Create endpoint call
             EndpointCall endpointCall = new EndpointCall();
             endpointCall.setTestName(testName);
@@ -92,6 +117,9 @@ public class Logger {
             endpointCall.setHeaders(headers);
             endpointCall.setBody(body);
             endpointCall.setUrlParameters(urlParams);
+            endpointCall.setResponseStatusCode(responseStatusCode);
+            endpointCall.setResponseHeaders(responseHeaders);
+            endpointCall.setResponseBody(responseBody);
 
             // Add call to coverage (aggregates automatically)
             methodCoverage.addCall(endpointCall);
@@ -135,6 +163,17 @@ public class Logger {
             }
         }
         return queryParams;
+    }
+
+    public static String getResponseBody(org.apache.http.HttpResponse response) {
+        try {
+            if (response != null && response.getEntity() != null) {
+                return EntityUtils.toString(response.getEntity());
+            }
+        } catch (IOException e) {
+            System.err.println("[Coverage] Failed to read response body: " + e.getMessage());
+        }
+        return null;
     }
 
 }

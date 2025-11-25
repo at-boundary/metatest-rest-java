@@ -71,13 +71,13 @@ public class AspectExecutor {
         TestContext context = TestContextManager.getContext();
         Object[] args = joinPoint.getArgs();
 
+        HttpRequestBase httpRequest = null;
         if (args.length > 0 && args[0] instanceof HttpRequestBase) {
-            HttpRequestBase httpRequest = (HttpRequestBase) args[0];
+            httpRequest = (HttpRequestBase) args[0];
 
             if (context.getOriginalResponse() == null) {
                 Request requestWrapper = HTTPFactory.createRequestFrom(httpRequest);
                 context.setOriginalRequest(requestWrapper);
-                Logger.parseResponse(httpRequest, context.getTestName());
                 System.out.println("Original request captured: " + requestWrapper.getUrl());
             }
         }
@@ -95,8 +95,13 @@ public class AspectExecutor {
                 context.setOriginalResponse(responseWrapper);
                 System.out.println("Original response captured.");
 
-
                 httpResponse.setEntity(new StringEntity(responseWrapper.getBody()));
+
+                // Log to coverage after we have both request and response
+                // Pass responseWrapper instead of httpResponse since entity was already consumed
+                if (httpRequest != null) {
+                    Logger.parseResponse(httpRequest, context.getTestName(), responseWrapper);
+                }
 
             } else if (context.getSimulatedResponse() != null) {
                 // If it's a rerun for fault simulation, inject the faulty body.

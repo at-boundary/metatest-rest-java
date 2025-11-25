@@ -23,4 +23,13 @@ public class EndpointCall {
 
     @JsonProperty("urlParameters")
     private Map<String, String> urlParameters;
+
+    @JsonProperty("response_status_code")
+    private Integer responseStatusCode;
+
+    @JsonProperty("response_headers")
+    private Map<String, String> responseHeaders;
+
+    @JsonProperty("response_body")
+    private Object responseBody;
 }

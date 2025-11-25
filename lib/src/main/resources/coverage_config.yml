@@ -22,7 +22,7 @@ coverage:
   include_request_body: true
 
   # Include response body in coverage report (can be large)
-  include_response_body: false
+  include_response_body: true
 
   # Aggregate by normalized pattern (/orders/{id}) vs literal (/orders/123)
   # Both are always captured, this controls the grouping
