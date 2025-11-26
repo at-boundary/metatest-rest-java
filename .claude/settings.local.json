@@ -5,7 +5,12 @@
       "Bash(./gradlew build:*)",
       "Read(//e/Projects/METATEST/ANTIGEN/antigen-example/**)",
       "Read(//e/Projects/METATEST/ANTIGEN/**)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(./gradlew clean build:*)",
+      "Bash(tree:*)",
+      "Bash(for dir in core simulation coverage analytics)",
+      "Bash(done)",
+      "Bash(for dir in api http injection gradle)"
     ],
     "deny": [],
     "ask": []
