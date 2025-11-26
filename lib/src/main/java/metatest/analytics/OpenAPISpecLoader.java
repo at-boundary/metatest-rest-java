@@ -1,4 +1,4 @@
-package metatest.schemacoverage;
+package metatest.analytics;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;

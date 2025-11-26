@@ -1,4 +1,4 @@
-package metatest.runner;
+package metatest.core.interceptor;
 
 public class TestContextManager {
     private static final ThreadLocal<TestContext> contextHolder = new ThreadLocal<>();

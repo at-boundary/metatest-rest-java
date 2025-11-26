@@ -1,4 +1,4 @@
-package metatest.report;
+package metatest.simulation;
 
 import lombok.Data;
 

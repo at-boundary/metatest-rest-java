@@ -1,4 +1,4 @@
-package metatest.utils;
+package metatest.core.normalizer;
 
 import java.util.regex.Pattern;
 

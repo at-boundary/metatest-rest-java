@@ -1,8 +1,9 @@
-package metatest.runner;
+package metatest.simulation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import metatest.config.FaultCollection;
-import metatest.config.SimulatorConfig;
+import metatest.core.config.FaultCollection;
+import metatest.core.config.SimulatorConfig;
+import metatest.core.interceptor.TestContext;
 import metatest.http.Request;
 import metatest.http.Response;
 import metatest.injection.FaultStrategy;
@@ -10,9 +11,9 @@ import metatest.injection.EmptyListStrategy;
 import metatest.injection.EmptyStringStrategy;
 import metatest.injection.MissingFieldStrategy;
 import metatest.injection.NullFieldStrategy;
-import metatest.report.FaultSimulationReport;
-import metatest.report.TestLevelSimulationResults;
-import metatest.utils.EndpointPatternNormalizer;
+import metatest.simulation.FaultSimulationReport;
+import metatest.simulation.TestLevelSimulationResults;
+import metatest.core.normalizer.EndpointPatternNormalizer;
 import org.aspectj.lang.ProceedingJoinPoint;
 
 import java.io.IOException;

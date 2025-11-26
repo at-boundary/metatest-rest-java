@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import metatest.api.dto.ContractFaultStrategyListResponse;
 import metatest.api.dto.SubmitSimulationResultsRequest;
-import metatest.config.MetaTestConfig;
+import metatest.core.config.MetaTestConfig;
 
 import java.io.IOException;
 import java.net.URI;

@@ -1,8 +1,8 @@
-package metatest.aop;
+package metatest.core.interceptor;
 
-import metatest.report.FaultSimulationReport;
-import metatest.schemacoverage.Collector;
-import metatest.schemacoverage.GapAnalyzer;
+import metatest.simulation.FaultSimulationReport;
+import metatest.coverage.Collector;
+import metatest.analytics.GapAnalyzer;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestPlan;
 

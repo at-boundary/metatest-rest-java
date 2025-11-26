@@ -1,5 +1,9 @@
 package metatest.config;
 
+import metatest.core.config.ConfigurationSource;
+import metatest.core.config.FaultCollection;
+import metatest.core.config.LocalConfigurationSource;
+import metatest.core.config.MetaTestConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

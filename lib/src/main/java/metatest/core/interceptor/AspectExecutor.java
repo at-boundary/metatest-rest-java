@@ -1,13 +1,13 @@
-package metatest.aop;
+package metatest.core.interceptor;
 
-import metatest.config.SimulatorConfig;
+import metatest.core.config.SimulatorConfig;
 import metatest.http.HTTPFactory;
 import metatest.http.Request;
 import metatest.http.Response;
-import metatest.runner.Runner;
-import metatest.runner.TestContext;
-import metatest.runner.TestContextManager;
-import metatest.schemacoverage.Logger;
+import metatest.simulation.Runner;
+import metatest.core.interceptor.TestContext;
+import metatest.core.interceptor.TestContextManager;
+import metatest.coverage.Logger;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.StringEntity;

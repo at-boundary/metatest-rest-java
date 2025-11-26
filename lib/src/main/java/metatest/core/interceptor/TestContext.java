@@ -1,4 +1,4 @@
-package metatest.runner;
+package metatest.core.interceptor;
 
 import lombok.Data;
 import metatest.http.Request;

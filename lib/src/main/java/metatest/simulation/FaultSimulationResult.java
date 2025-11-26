@@ -1,4 +1,4 @@
-package metatest.report;
+package metatest.simulation;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;

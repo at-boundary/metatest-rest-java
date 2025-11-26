@@ -1,4 +1,6 @@
-package metatest.schemacoverage;
+package metatest.coverage;
+
+import metatest.core.config.CoverageConfig;
 
 public class Collector {
     private static volatile CollectorData data = new CollectorData();

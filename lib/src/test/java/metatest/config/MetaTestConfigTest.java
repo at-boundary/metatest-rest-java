@@ -1,5 +1,6 @@
 package metatest.config;
 
+import metatest.core.config.MetaTestConfig;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;

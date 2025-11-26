@@ -1,4 +1,4 @@
-package metatest.report;
+package metatest.simulation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;

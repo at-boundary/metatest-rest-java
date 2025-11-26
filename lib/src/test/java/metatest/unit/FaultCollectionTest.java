@@ -1,6 +1,6 @@
 package metatest.unit;
 
-import metatest.config.FaultCollection;
+import metatest.core.config.FaultCollection;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;

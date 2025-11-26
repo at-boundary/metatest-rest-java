@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//e/Projects/METATEST/ANTIGEN/antigen/**)",
+      "Bash(./gradlew build:*)",
+      "Read(//e/Projects/METATEST/ANTIGEN/antigen-example/**)",
+      "Read(//e/Projects/METATEST/ANTIGEN/**)",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

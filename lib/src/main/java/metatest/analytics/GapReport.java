@@ -1,4 +1,4 @@
-package metatest.schemacoverage;
+package metatest.analytics;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

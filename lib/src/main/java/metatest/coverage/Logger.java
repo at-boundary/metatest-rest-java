@@ -1,7 +1,8 @@
-package metatest.schemacoverage;
+package metatest.coverage;
 
+import metatest.core.config.CoverageConfig;
 import metatest.http.Response;
-import metatest.utils.EndpointPatternNormalizer;
+import metatest.core.normalizer.EndpointPatternNormalizer;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.util.EntityUtils;

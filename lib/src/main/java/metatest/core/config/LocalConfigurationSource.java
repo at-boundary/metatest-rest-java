@@ -1,4 +1,4 @@
-package metatest.config;
+package metatest.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;

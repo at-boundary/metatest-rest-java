@@ -1,4 +1,4 @@
-package metatest.config;
+package metatest.core.config;
 
 public enum FaultCollection {
     null_field,

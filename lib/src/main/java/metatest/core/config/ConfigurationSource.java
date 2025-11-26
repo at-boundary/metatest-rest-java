@@ -1,4 +1,4 @@
-package metatest.config;
+package metatest.core.config;
 
 import java.util.List;
 

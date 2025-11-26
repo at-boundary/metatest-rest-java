@@ -1,6 +1,6 @@
 package metatest.injection;
 
-import metatest.config.FaultCollection;
+import metatest.core.config.FaultCollection;
 
 import java.util.ArrayList;
 import java.util.List;

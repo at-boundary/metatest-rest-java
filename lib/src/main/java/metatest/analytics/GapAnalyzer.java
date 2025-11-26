@@ -1,6 +1,10 @@
-package metatest.schemacoverage;
+package metatest.analytics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import metatest.core.config.CoverageConfig;
+import metatest.coverage.Collector;
+import metatest.coverage.CollectorData;
+import metatest.coverage.EndpointMethodCoverage;
 
 import java.io.FileWriter;
 import java.io.IOException;

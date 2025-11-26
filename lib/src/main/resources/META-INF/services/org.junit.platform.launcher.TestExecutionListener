@@ -1,1 +1,1 @@
-metatest.aop.GlobalTestExecutionListener
+metatest.core.interceptor.GlobalTestExecutionListener
