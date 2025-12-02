@@ -10,7 +10,14 @@
       "Bash(tree:*)",
       "Bash(for dir in core simulation coverage analytics)",
       "Bash(done)",
-      "Bash(for dir in api http injection gradle)"
+      "Bash(for dir in api http injection gradle)",
+      "WebFetch(domain:arxiv.org)",
+      "Bash(./gradlew :lib:test:*)",
+      "Bash(./gradlew :lib:dependencies:*)",
+      "Bash(./gradlew buildEnvironment:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(./gradlew:*)",
+      "Bash(jar tf:*)"
     ],
     "deny": [],
     "ask": []

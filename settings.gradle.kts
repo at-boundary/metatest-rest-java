@@ -9,3 +9,4 @@
 
 rootProject.name = "metatester"
 include("lib")
+include("gradle-plugin")

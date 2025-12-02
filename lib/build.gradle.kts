@@ -66,7 +66,7 @@ dependencies {
     testImplementation(project(":lib"))
     implementation("org.aspectj:aspectjrt:1.9.22")
     api("org.aspectj:aspectjweaver:1.9.22")
-    implementation("io.rest-assured:rest-assured:5.3.0")
+    implementation("io.rest-assured:rest-assured:5.5.6")
     implementation("io.rest-assured:json-path:5.3.0")
     testImplementation("org.projectlombok:lombok:1.18.26")
     compileOnly("org.aspectj:aspectjtools:1.9.22")
@@ -92,6 +92,9 @@ dependencies {
     implementation("io.swagger.parser.v3:swagger-parser:2.1.22")
     testImplementation("org.assertj:assertj-core:3.24.2")
 }
+
+// Gradle plugin has been moved to separate module: gradle-plugin/
+// This avoids Groovy version conflicts in tests
 
 tasks.test {
     useJUnitPlatform()

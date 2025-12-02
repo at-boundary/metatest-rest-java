@@ -26,3 +26,5 @@ Thumbs.db
 *metatester.properties
 schema_coverage.json
 fault_simulation_report.json
+
+gradle-plugin/build
