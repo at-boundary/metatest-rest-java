@@ -24,7 +24,8 @@
 Thumbs.db
 
 *metatester.properties
-schema_coverage.json
-fault_simulation_report.json
+gap_*
+schema_coverage*
+fault_simulation*
 
 gradle-plugin/build
