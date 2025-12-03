@@ -4,24 +4,36 @@ import metatest.core.config.ConfigurationSource;
 import metatest.core.config.FaultCollection;
 import metatest.core.config.LocalConfigurationSource;
 import metatest.core.config.MetaTestConfig;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ConfigurationSourceTest {
 
     @BeforeEach
     public void setUp() {
-        MetaTestConfig.resetInstance();
         System.clearProperty("metatest.config.source");
         System.clearProperty("metatest.api.key");
         System.clearProperty("metatest.project.id");
+        System.clearProperty("metatest.api.url");
+        MetaTestConfig.resetInstance();  // Reset AFTER clearing properties
+    }
+
+    @AfterEach
+    public void tearDown() {
+        // Clean up after each test to prevent pollution
+        System.clearProperty("metatest.config.source");
+        System.clearProperty("metatest.api.key");
+        System.clearProperty("metatest.project.id");
+        System.clearProperty("metatest.api.url");
+        MetaTestConfig.resetInstance();
     }
 
     @Test
+    @Order(1)
     public void testLocalConfigurationSource() {
         LocalConfigurationSource localConfig = new LocalConfigurationSource();
 
@@ -43,6 +55,7 @@ public class ConfigurationSourceTest {
     }
 
     @Test
+    @Order(2)
     public void testLocalConfigurationSourceExclusions() {
         LocalConfigurationSource localConfig = new LocalConfigurationSource();
 
@@ -61,6 +74,7 @@ public class ConfigurationSourceTest {
     }
 
     @Test
+    @Order(3)
     public void testConfigurationSourceInterface() {
         ConfigurationSource localConfig = new LocalConfigurationSource();
 
@@ -73,6 +87,7 @@ public class ConfigurationSourceTest {
     }
 
     @Test
+    @Order(4)
     public void testMetaTestConfigOptionalApiKey() {
         MetaTestConfig config = MetaTestConfig.getInstance();
 
@@ -86,6 +101,7 @@ public class ConfigurationSourceTest {
     }
 
     @Test
+    @Order(6)  // Run this last since it sets API config
     public void testMetaTestConfigWithApiKey() {
         System.setProperty("metatest.api.key", "mt_proj_test123");
         System.setProperty("metatest.project.id", "test-project-id");
@@ -102,6 +118,7 @@ public class ConfigurationSourceTest {
     }
 
     @Test
+    @Order(5)
     public void testMetaTestConfigUrlGenerationFailsWithoutApiConfig() {
         MetaTestConfig config = MetaTestConfig.getInstance();
 

@@ -17,7 +17,8 @@
       "Bash(./gradlew buildEnvironment:*)",
       "Bash(./gradlew clean:*)",
       "Bash(./gradlew:*)",
-      "Bash(jar tf:*)"
+      "Bash(jar tf:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

@@ -104,7 +104,7 @@ public class MetaTestConfig {
         return "MetatestConfig{" +
                 "apiBaseUrl='" + apiBaseUrl + '\'' +
                 ", projectId='" + projectId + '\'' +
-                ", apiKey='" + (apiKey != null ? "CONFIGURED" : "NOT_SET") + '\'' +
+                ", apiKey='" + (apiKey != null ? "***CONFIGURED***" : "NOT_SET") + '\'' +
                 '}';
     }
 }
