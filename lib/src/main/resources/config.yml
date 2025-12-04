@@ -58,6 +58,20 @@ simulation:
     - message
     - errorMessage
 
+  # Strategy for tests that make multiple HTTP requests
+  multiple_endpoints_strategy:
+    # Only simulate the last endpoint (typically what's being asserted)
+    # Set to false to simulate ALL captured endpoints in the test
+    test_only_last_endpoint: true
+
+    # Exclude specific endpoints from simulation (regex patterns applied to normalized paths)
+    # Useful for skipping setup/auth requests
+    exclude_endpoints:
+      # - ".*\\/auth\\/.*"           # Skip all authentication endpoints
+      # - ".*\\/stocks.*"            # Skip all stock-related endpoints
+      # To simulate ONLY certain endpoints, exclude everything else with negative lookahead:
+      # - "^(?!.*\\/orders).*$"     # Only simulate /orders endpoints (exclude everything else)
+
 report:
  format: html
  output_path: "./reports/simulator-report.html"

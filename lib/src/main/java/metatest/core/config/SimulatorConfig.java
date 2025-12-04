@@ -202,6 +202,13 @@ public class SimulatorConfig {
         public boolean skip_collections_response;
         public int min_response_fields;
         public List<String> skip_if_contains_fields;
+        public MultipleEndpointsStrategy multiple_endpoints_strategy;
+    }
+
+    @Data
+    public static class MultipleEndpointsStrategy {
+        public boolean test_only_last_endpoint = true; // default: true
+        public List<String> exclude_endpoints; // regex patterns
     }
 
     @Data
@@ -405,5 +412,24 @@ public class SimulatorConfig {
         // Trim whitespace and check if response starts with '[' (JSON array)
         String trimmed = responseBody.trim();
         return trimmed.startsWith("[");
+    }
+
+    /**
+     * Gets the multiple endpoints strategy configuration.
+     * If not configured, returns default (test_only_last_endpoint = true).
+     *
+     * @return The multiple endpoints strategy configuration
+     */
+    public static MultipleEndpointsStrategy getMultipleEndpointsStrategy() {
+        SimulatorConfig config = configSource.getConfig();
+        if (config != null && config.simulation != null && config.simulation.multiple_endpoints_strategy != null) {
+            return config.simulation.multiple_endpoints_strategy;
+        }
+
+        // Return default configuration
+        MultipleEndpointsStrategy defaultStrategy = new MultipleEndpointsStrategy();
+        defaultStrategy.test_only_last_endpoint = true;
+        defaultStrategy.exclude_endpoints = new ArrayList<>();
+        return defaultStrategy;
     }
 }

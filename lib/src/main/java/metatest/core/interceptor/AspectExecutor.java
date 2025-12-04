@@ -89,33 +89,48 @@ public class AspectExecutor {
         if (result instanceof HttpResponse) {
             HttpResponse httpResponse = (HttpResponse) result;
 
-            // If it's the first run, capture the response.
-            if (context.getOriginalResponse() == null) {
-                Response responseWrapper = HTTPFactory.createResponseFrom(httpResponse);
-                context.setOriginalResponse(responseWrapper);
-                System.out.println("Original response captured.");
+            // Determine current request index in this test execution
+            // During baseline: use size (list is growing)
+            // During simulation re-runs: use counter (list is already populated)
+            int currentRequestIndex;
+            if (context.getCurrentSimulationIndex() == -1) {
+                // Baseline run: use size as requests are being added
+                currentRequestIndex = context.getCapturedRequests().size();
+            } else {
+                // Simulation re-run: use counter that tracks position
+                currentRequestIndex = context.getAndIncrementRequestCounter();
+            }
 
+            // If it's the baseline run (no simulation), capture ALL requests
+            if (context.getCurrentSimulationIndex() == -1) {
+                Response responseWrapper = HTTPFactory.createResponseFrom(httpResponse);
                 httpResponse.setEntity(new StringEntity(responseWrapper.getBody()));
 
-                // Log to coverage after we have both request and response
-                // Pass responseWrapper instead of httpResponse since entity was already consumed
+                // Capture FIRST request as originalResponse (for backward compatibility)
+                if (context.getOriginalResponse() == null) {
+                    context.setOriginalResponse(responseWrapper);
+                    System.out.println("Original response captured.");
+                }
+
+                // Add to captured requests list for comprehensive simulation
                 if (httpRequest != null) {
+                    Request requestWrapper = HTTPFactory.createRequestFrom(httpRequest);
+                    context.addCapturedRequest(requestWrapper, responseWrapper);
+                    System.out.println("Captured request #" + currentRequestIndex + ": " + requestWrapper.getUrl());
+
+                    // Log to coverage
                     Logger.parseResponse(httpRequest, context.getTestName(), responseWrapper);
                 }
 
-            } else if (context.getSimulatedResponse() != null) {
-                // If it's a rerun for fault simulation, inject the faulty body.
+            } else if (context.getSimulatedResponse() != null && currentRequestIndex == context.getCurrentSimulationIndex()) {
+                // During simulation run, inject mutated response for the target request
                 String simulatedBody = context.getSimulatedResponse().getBody();
                 httpResponse.setEntity(new StringEntity(simulatedBody));
-                System.out.printf("    [RESPONSE-INJECTION] Injecting simulated response: %s%n", simulatedBody);
+                System.out.printf("    [RESPONSE-INJECTION] Injecting simulated response for request #%d: %s%n", currentRequestIndex, simulatedBody);
             } else {
-                // Log subsequent requests for coverage (not part of fault simulation)
+                // For other requests during simulation, use original response
                 Response responseWrapper = HTTPFactory.createResponseFrom(httpResponse);
                 httpResponse.setEntity(new StringEntity(responseWrapper.getBody()));
-
-                if (httpRequest != null) {
-                    Logger.parseResponse(httpRequest, context.getTestName(), responseWrapper);
-                }
             }
         }
 
