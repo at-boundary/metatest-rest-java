@@ -108,6 +108,14 @@ public class AspectExecutor {
                 String simulatedBody = context.getSimulatedResponse().getBody();
                 httpResponse.setEntity(new StringEntity(simulatedBody));
                 System.out.printf("    [RESPONSE-INJECTION] Injecting simulated response: %s%n", simulatedBody);
+            } else {
+                // Log subsequent requests for coverage (not part of fault simulation)
+                Response responseWrapper = HTTPFactory.createResponseFrom(httpResponse);
+                httpResponse.setEntity(new StringEntity(responseWrapper.getBody()));
+
+                if (httpRequest != null) {
+                    Logger.parseResponse(httpRequest, context.getTestName(), responseWrapper);
+                }
             }
         }
 
