@@ -27,5 +27,5 @@ Thumbs.db
 gap_*
 schema_coverage*
 fault_simulation*
-
+metatest_report.html
 gradle-plugin/build

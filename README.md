@@ -345,9 +345,25 @@ tasks.test {
 
 ## Reports and Analytics
 
-### Fault Simulation Report
+MetaTest generates both JSON and HTML reports after test execution.
 
-Generated at `fault_simulation_report.json`:
+### HTML Report (Human-Readable)
+
+Generated at `metatest_report.html` - Open this file in any web browser for an interactive, visual report.
+
+**Features:**
+- Modern, responsive UI with tabs for different views
+- Summary dashboard with key metrics (detection rate, escaped faults, coverage)
+- Interactive fault simulation results with expandable details
+- Gap analysis showing tested vs untested endpoints
+- Schema coverage with detailed HTTP call logs
+- Color-coded status indicators (green = detected, red = escaped)
+
+Simply open `metatest_report.html` in your browser after running tests with MetaTest enabled.
+
+### Fault Simulation Report (JSON)
+
+Generated at `fault_simulation_report.json` for programmatic access:
 
 ```json
 {

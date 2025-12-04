@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import metatest.api.FaultStrategyApiClient;
 import metatest.api.dto.SubmitSimulationResultsRequest;
+import metatest.report.HtmlReportGenerator;
 
 import java.io.File;
 import java.io.IOException;

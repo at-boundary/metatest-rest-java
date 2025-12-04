@@ -18,7 +18,8 @@
       "Bash(./gradlew clean:*)",
       "Bash(./gradlew:*)",
       "Bash(jar tf:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
