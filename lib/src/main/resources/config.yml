@@ -4,13 +4,13 @@ faults:
   missing_field:
     enabled: true
   empty_list:
-    enabled: false
+    enabled: true
   empty_string:
-    enabled: false
+    enabled: true
   invalid_data_type:
     enabled: false
   invalid_value:
-    enabled: false
+    enabled: true
   http_method_change:
     enabled: false
   status_code_change:

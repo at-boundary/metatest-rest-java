@@ -67,8 +67,8 @@ public class HtmlReportGenerator {
         // Navigation Tabs
         html.append("  <div class=\"tabs\">\n");
         html.append("    <button class=\"tab-button active\" onclick=\"showTab('fault-simulation')\">Fault Simulation</button>\n");
-        html.append("    <button class=\"tab-button\" onclick=\"showTab('gap-analysis')\">Gap Analysis</button>\n");
-        html.append("    <button class=\"tab-button\" onclick=\"showTab('schema-coverage')\">Schema Coverage</button>\n");
+        html.append("    <button class=\"tab-button\" onclick=\"showTab('gap-analysis')\">Execution Coverage</button>\n");
+//        html.append("    <button class=\"tab-button\" onclick=\"showTab('schema-coverage')\">Schema Coverage</button>\n");
         html.append("  </div>\n");
 
         // Tab Content
@@ -80,9 +80,9 @@ public class HtmlReportGenerator {
         html.append(buildGapAnalysisSection(gapAnalysis));
         html.append("  </div>\n");
 
-        html.append("  <div id=\"schema-coverage\" class=\"tab-content\">\n");
-        html.append(buildSchemaCoverageSection(schemaCoverage));
-        html.append("  </div>\n");
+//        html.append("  <div id=\"schema-coverage\" class=\"tab-content\">\n");
+//        html.append(buildSchemaCoverageSection(schemaCoverage));
+//        html.append("  </div>\n");
 
         // JavaScript
         html.append("  <script>\n");
@@ -100,7 +100,7 @@ public class HtmlReportGenerator {
                "    <div class=\"header-content\">\n" +
                "      <div>\n" +
                "        <h1>MetaTest Report</h1>\n" +
-               "        <p class=\"subtitle\">REST API Mutation Testing Results</p>\n" +
+               "        <p class=\"subtitle\">REST API Tests Effectiveness Results</p>\n" +
                "        <p class=\"timestamp\">Generated: " + timestamp + "</p>\n" +
                "      </div>\n" +
                "      <button class=\"theme-toggle\" onclick=\"toggleTheme()\" title=\"Toggle theme\">\n" +
@@ -342,8 +342,9 @@ public class HtmlReportGenerator {
         }
 
         StringBuilder section = new StringBuilder();
-        section.append("    <div class=\"section-title\">API Coverage Gap Analysis</div>\n");
-        section.append("    <div class=\"section-subtitle\">Endpoints defined in OpenAPI spec compared to test coverage</div>\n");
+        section.append("    <div class=\"section-title\">Executed Endpoints</div>\n");
+        section.append("    <div class=\"section-subtitle\">Number of endpoints executions based on OpenAPI spec</div>\n");
+        section.append("    <div class=\"section-subtitle\">This is not representative of your functional coverage. Use it as a proxy to identify potential coverage issues</div>\n");
 
         // Summary
         if (gapAnalysis.has("summary")) {
@@ -396,28 +397,41 @@ public class HtmlReportGenerator {
             if (tested.isArray() && tested.size() > 0) {
                 section.append("    <div class=\"endpoint-list\">\n");
 
+                int endpointIndex = 0;
                 for (JsonNode endpoint : tested) {
                     String path = endpoint.has("path") ? endpoint.get("path").asText() : "";
                     String method = endpoint.has("method") ? endpoint.get("method").asText() : "";
                     JsonNode tests = endpoint.has("tests") ? endpoint.get("tests") : null;
                     int callCount = endpoint.has("call_count") ? endpoint.get("call_count").asInt() : 0;
+                    int testCount = (tests != null && tests.isArray()) ? tests.size() : 0;
 
-                    section.append("      <div class=\"endpoint-item tested\">\n");
-                    section.append("        <div class=\"endpoint-main\">\n");
-                    section.append("          <span class=\"http-method method-" + method.toLowerCase() + "\">" + method + "</span>\n");
-                    section.append("          <span class=\"endpoint-path\">" + escapeHtml(path) + "</span>\n");
-                    section.append("          <span class=\"call-count\">" + callCount + " call(s)</span>\n");
+                    section.append("      <div class=\"endpoint-card gap-endpoint-card\">\n");
+                    section.append("        <div class=\"endpoint-header collapsible\" onclick=\"toggleGapEndpoint('tested-" + endpointIndex + "')\">\n");
+                    section.append("          <div class=\"endpoint-title-section\">\n");
+                    section.append("            <div class=\"endpoint-main\">\n");
+                    section.append("              <span class=\"http-method method-" + method.toLowerCase() + "\">" + method + "</span>\n");
+                    section.append("              <span class=\"endpoint-path\">" + escapeHtml(path) + "</span>\n");
+                    section.append("            </div>\n");
+                    section.append("            <div class=\"endpoint-summary\">\n");
+                    section.append("              <span class=\"summary-badge total\">" + testCount + " test(s)</span>\n");
+                    section.append("              <span class=\"summary-badge total\">" + callCount + " call(s)</span>\n");
+                    section.append("            </div>\n");
+                    section.append("          </div>\n");
+                    section.append("          <span class=\"collapse-icon collapsed\">▼</span>\n");
                     section.append("        </div>\n");
+                    section.append("        <div id=\"tested-" + endpointIndex + "\" class=\"endpoint-content collapsed\">\n");
 
                     if (tests != null && tests.isArray() && tests.size() > 0) {
-                        section.append("        <div class=\"test-list\">\n");
+                        section.append("          <div class=\"test-list-expanded\">\n");
                         for (JsonNode test : tests) {
-                            section.append("          <span class=\"test-tag\">" + escapeHtml(test.asText()) + "</span>\n");
+                            section.append("            <span class=\"test-tag\">" + escapeHtml(test.asText()) + "</span>\n");
                         }
-                        section.append("        </div>\n");
+                        section.append("          </div>\n");
                     }
 
+                    section.append("        </div>\n");
                     section.append("      </div>\n");
+                    endpointIndex++;
                 }
 
                 section.append("    </div>\n");
@@ -438,14 +452,32 @@ public class HtmlReportGenerator {
             if (untested.isArray() && untested.size() > 0) {
                 section.append("    <div class=\"endpoint-list\">\n");
 
+                int endpointIndex = 0;
                 for (JsonNode endpoint : untested) {
                     String path = endpoint.has("path") ? endpoint.get("path").asText() : "";
                     String method = endpoint.has("method") ? endpoint.get("method").asText() : "";
 
-                    section.append("      <div class=\"endpoint-item untested\">\n");
-                    section.append("        <span class=\"http-method method-" + method.toLowerCase() + "\">" + method + "</span>\n");
-                    section.append("        <span class=\"endpoint-path\">" + escapeHtml(path) + "</span>\n");
+                    section.append("      <div class=\"endpoint-card gap-endpoint-card untested-card\">\n");
+                    section.append("        <div class=\"endpoint-header collapsible\" onclick=\"toggleGapEndpoint('untested-" + endpointIndex + "')\">\n");
+                    section.append("          <div class=\"endpoint-title-section\">\n");
+                    section.append("            <div class=\"endpoint-main\">\n");
+                    section.append("              <span class=\"http-method method-" + method.toLowerCase() + "\">" + method + "</span>\n");
+                    section.append("              <span class=\"endpoint-path\">" + escapeHtml(path) + "</span>\n");
+                    section.append("            </div>\n");
+                    section.append("            <div class=\"endpoint-summary\">\n");
+//                    section.append("              <span class=\"summary-badge escaped\">Not Tested</span>\n");
+                    section.append("            </div>\n");
+                    section.append("          </div>\n");
+                    section.append("          <span class=\"collapse-icon collapsed\">▼</span>\n");
+                    section.append("        </div>\n");
+                    section.append("        <div id=\"untested-" + endpointIndex + "\" class=\"endpoint-content collapsed\">\n");
+                    section.append("          <div class=\"untested-info\">\n");
+                    section.append("            <p>This endpoint is defined in the OpenAPI specification but has no test coverage.</p>\n");
+                    section.append("            <p>Consider adding tests to improve API coverage.</p>\n");
+                    section.append("          </div>\n");
+                    section.append("        </div>\n");
                     section.append("      </div>\n");
+                    endpointIndex++;
                 }
 
                 section.append("    </div>\n");
@@ -469,15 +501,41 @@ public class HtmlReportGenerator {
         JsonNode paths = schemaCoverage.get("paths");
         Iterator<Map.Entry<String, JsonNode>> pathIter = paths.fields();
 
+        int pathIndex = 0;
         while (pathIter.hasNext()) {
             Map.Entry<String, JsonNode> pathEntry = pathIter.next();
             String path = pathEntry.getKey();
             JsonNode methods = pathEntry.getValue();
 
+            // Calculate summary for this path
+            int methodCount = 0;
+            int totalCalls = 0;
+            int totalTests = 0;
+            Iterator<Map.Entry<String, JsonNode>> summaryMethodIter = methods.fields();
+            while (summaryMethodIter.hasNext()) {
+                Map.Entry<String, JsonNode> methodEntry = summaryMethodIter.next();
+                JsonNode methodData = methodEntry.getValue();
+                methodCount++;
+                if (methodData.has("summary")) {
+                    JsonNode summary = methodData.get("summary");
+                    totalCalls += summary.has("no_of_times_called") ? summary.get("no_of_times_called").asInt() : 0;
+                    totalTests += summary.has("no_of_tests_calling") ? summary.get("no_of_tests_calling").asInt() : 0;
+                }
+            }
+
             section.append("    <div class=\"endpoint-card\">\n");
-            section.append("      <div class=\"endpoint-header\">\n");
-            section.append("        <span class=\"endpoint-path\">" + escapeHtml(path) + "</span>\n");
+            section.append("      <div class=\"endpoint-header collapsible\" onclick=\"toggleSchemaEndpoint(" + pathIndex + ")\">\n");
+            section.append("        <div class=\"endpoint-title-section\">\n");
+            section.append("          <span class=\"endpoint-path\">" + escapeHtml(path) + "</span>\n");
+            section.append("          <div class=\"endpoint-summary\">\n");
+            section.append("            <span class=\"summary-badge total\">" + methodCount + " method(s)</span>\n");
+            section.append("            <span class=\"summary-badge total\">" + totalCalls + " call(s)</span>\n");
+            section.append("            <span class=\"summary-badge total\">" + totalTests + " test(s)</span>\n");
+            section.append("          </div>\n");
+            section.append("        </div>\n");
+            section.append("        <span class=\"collapse-icon collapsed\">▼</span>\n");
             section.append("      </div>\n");
+            section.append("      <div id=\"schema-endpoint-" + pathIndex + "\" class=\"endpoint-content collapsed\">\n");
 
             Iterator<Map.Entry<String, JsonNode>> methodIter = methods.fields();
             while (methodIter.hasNext()) {
@@ -485,20 +543,20 @@ public class HtmlReportGenerator {
                 String method = methodEntry.getKey();
                 JsonNode methodData = methodEntry.getValue();
 
-                section.append("      <div class=\"method-section\">\n");
-                section.append("        <h4 class=\"method-title\"><span class=\"http-method method-" + method.toLowerCase() + "\">" + method + "</span></h4>\n");
+                section.append("        <div class=\"method-section\">\n");
+                section.append("          <h4 class=\"method-title\"><span class=\"http-method method-" + method.toLowerCase() + "\">" + method + "</span></h4>\n");
 
                 if (methodData.has("summary")) {
                     JsonNode summary = methodData.get("summary");
-                    section.append("        <div class=\"coverage-stats\">\n");
-                    section.append("          <span class=\"stat\">Calls: <strong>" + summary.get("no_of_times_called").asInt() + "</strong></span>\n");
-                    section.append("          <span class=\"stat\">Tests: <strong>" + summary.get("no_of_tests_calling").asInt() + "</strong></span>\n");
-                    section.append("        </div>\n");
+                    section.append("          <div class=\"coverage-stats\">\n");
+                    section.append("            <span class=\"stat\">Calls: <strong>" + summary.get("no_of_times_called").asInt() + "</strong></span>\n");
+                    section.append("            <span class=\"stat\">Tests: <strong>" + summary.get("no_of_tests_calling").asInt() + "</strong></span>\n");
+                    section.append("          </div>\n");
                 }
 
                 if (methodData.has("calls") && methodData.get("calls").isArray()) {
                     JsonNode calls = methodData.get("calls");
-                    section.append("        <div class=\"calls-container\">\n");
+                    section.append("          <div class=\"calls-container\">\n");
 
                     int callIndex = 0;
                     for (JsonNode call : calls) {
@@ -507,40 +565,43 @@ public class HtmlReportGenerator {
                         String statusClass = statusCode >= 200 && statusCode < 300 ? "success" :
                                            statusCode >= 400 ? "error" : "info";
 
-                        section.append("          <div class=\"call-item\">\n");
-                        section.append("            <div class=\"call-header\" onclick=\"toggleCall(" + callIndex + ")\">\n");
-                        section.append("              <span class=\"test-name\">" + escapeHtml(testName) + "</span>\n");
-                        section.append("              <span class=\"status-code " + statusClass + "\">" + statusCode + "</span>\n");
-                        section.append("            </div>\n");
-                        section.append("            <div id=\"call-" + callIndex + "\" class=\"call-details\" style=\"display:none;\">\n");
+                        section.append("            <div class=\"call-item\">\n");
+                        section.append("              <div class=\"call-header\" onclick=\"toggleCall('call-" + pathIndex + "-" + callIndex + "')\">\n");
+                        section.append("                <span class=\"test-name\">" + escapeHtml(testName) + "</span>\n");
+                        section.append("                <span class=\"status-code " + statusClass + "\">" + statusCode + "</span>\n");
+                        section.append("              </div>\n");
+                        section.append("              <div id=\"call-" + pathIndex + "-" + callIndex + "\" class=\"call-details\" style=\"display:none;\">\n");
 
                         if (call.has("body") && !call.get("body").isNull()) {
-                            section.append("              <div class=\"call-detail-section\">\n");
-                            section.append("                <strong>Request Body:</strong>\n");
-                            section.append("                <pre>" + escapeHtml(call.get("body").asText()) + "</pre>\n");
-                            section.append("              </div>\n");
+                            section.append("                <div class=\"call-detail-section\">\n");
+                            section.append("                  <strong>Request Body:</strong>\n");
+                            section.append("                  <pre>" + escapeHtml(call.get("body").asText()) + "</pre>\n");
+                            section.append("                </div>\n");
                         }
 
                         if (call.has("response_body") && !call.get("response_body").isNull()) {
-                            section.append("              <div class=\"call-detail-section\">\n");
-                            section.append("                <strong>Response Body:</strong>\n");
-                            section.append("                <pre>" + escapeHtml(formatJson(call.get("response_body").asText())) + "</pre>\n");
-                            section.append("              </div>\n");
+                            section.append("                <div class=\"call-detail-section\">\n");
+                            section.append("                  <strong>Response Body:</strong>\n");
+                            section.append("                  <pre>" + escapeHtml(formatJson(call.get("response_body").asText())) + "</pre>\n");
+                            section.append("                </div>\n");
                         }
 
+                        section.append("              </div>\n");
                         section.append("            </div>\n");
-                        section.append("          </div>\n");
 
                         callIndex++;
                     }
 
-                    section.append("        </div>\n");
+                    section.append("          </div>\n");
                 }
 
-                section.append("      </div>\n");
+                section.append("        </div>\n");
             }
 
+            section.append("      </div>\n");
             section.append("    </div>\n");
+
+            pathIndex++;
         }
 
         return section.toString();
@@ -1267,6 +1328,35 @@ code {
     font-size: 1.1em;
     border: 1px solid var(--border-color);
 }
+
+.gap-endpoint-card {
+    margin-bottom: 12px;
+}
+
+.untested-card {
+    border-left: 4px solid var(--accent-error);
+}
+
+.test-list-expanded {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px;
+}
+
+.untested-info {
+    padding: 16px;
+    color: var(--text-secondary);
+}
+
+.untested-info p {
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.untested-info p:last-child {
+    margin-bottom: 0;
+}
 """;
     }
 
@@ -1332,12 +1422,38 @@ function toggleDetails(btn) {
     }
 }
 
-function toggleCall(index) {
-    const details = document.getElementById('call-' + index);
+function toggleCall(id) {
+    const details = document.getElementById(id);
     if (details.style.display === 'none') {
         details.style.display = 'block';
     } else {
         details.style.display = 'none';
+    }
+}
+
+function toggleGapEndpoint(id) {
+    const content = document.getElementById(id);
+    const icon = event.currentTarget.querySelector('.collapse-icon');
+
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        icon.classList.remove('collapsed');
+    } else {
+        content.classList.add('collapsed');
+        icon.classList.add('collapsed');
+    }
+}
+
+function toggleSchemaEndpoint(index) {
+    const content = document.getElementById('schema-endpoint-' + index);
+    const icon = event.currentTarget.querySelector('.collapse-icon');
+
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        icon.classList.remove('collapsed');
+    } else {
+        content.classList.add('collapsed');
+        icon.classList.add('collapsed');
     }
 }
 
