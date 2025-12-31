@@ -1,5 +1,10 @@
 # Metatest - REST API Mutation Testing Framework
 
+> **⚠️ Experimental Project**
+>
+> This project is currently in experimental/development phase. Features and APIs may change without notice.
+> The library is temporarily hosted on GitHub Packages while implementation is being stabilized
+
 Metatest validates REST API test reliability through systematic fault injection and bytecode-level response manipulation.
 
 ## Overview
