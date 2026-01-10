@@ -1,24 +1,14 @@
 plugins {
     `java-library`
-    `maven-publish`
     id("io.freefair.aspectj.post-compile-weaving") version "8.6"
 }
 
-group = "com.github.at-boundary"
+group = "com.github.at-boundary.metatest-rest-java"
 version = "0.1.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-            artifactId = "metatest"
-        }
-    }
 }
 
 dependencies {
