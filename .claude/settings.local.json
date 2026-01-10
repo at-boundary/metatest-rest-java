@@ -19,7 +19,9 @@
       "Bash(./gradlew:*)",
       "Bash(jar tf:*)",
       "Bash(cat:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

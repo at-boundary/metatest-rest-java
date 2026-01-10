@@ -1,30 +1,11 @@
-import java.io.ByteArrayOutputStream
-
 plugins {
     `java-library`
     `maven-publish`
     `java-gradle-plugin`
 }
 
-val gitCommitHash: Provider<String> = project.provider {
-    try {
-        val process = ProcessBuilder("git", "rev-parse", "--short=7", "HEAD").start()
-        val outputStream = ByteArrayOutputStream()
-        process.inputStream.copyTo(outputStream)
-        process.waitFor()
-        outputStream.toString().trim()
-    } catch (e: Exception) {
-        println("Error getting git commit hash: ${e.message}")
-        "unknown"
-    }
-}
-
-group = "io.metatest"
-version = if (gitCommitHash.get() != "unknown") "1.0.0-dev-${gitCommitHash.get()}" else "1.0.0-SNAPSHOT"
-
-repositories {
-    mavenCentral()
-}
+group = "com.github.at-boundary"
+version = "0.1.0"
 
 dependencies {
     // DO NOT depend on :lib here - that would pull all dependencies into plugin classpath
@@ -58,15 +39,10 @@ gradlePlugin {
 }
 
 publishing {
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/at-boundary/metatest-rest-java")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+            artifactId = "metatest-gradle-plugin"
         }
-        mavenLocal()
     }
 }
