@@ -1,6 +1,15 @@
 plugins {
     `java-library`
+    `maven-publish`
     id("io.freefair.aspectj.post-compile-weaving") version "8.6"
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+        }
+    }
 }
 
 group = "com.github.at-boundary.metatest-rest-java"
