@@ -1,9 +1,8 @@
 # Metatest - REST API Mutation Testing Framework
 
-> **⚠️ Experimental Project**
+> **⚠️ Experimental Project (v0.1.0)**
 >
-> This project is currently in experimental/development phase. Features and APIs may change without notice.
-> The library is temporarily hosted on GitHub Packages while implementation is being stabilized
+> This project is currently in experimental/development phase. Features and APIs may change between versions.
 
 Metatest validates REST API test reliability through systematic fault injection and bytecode-level response manipulation.
 
@@ -253,52 +252,31 @@ export METATEST_PROJECT_ID=your-project-id
 
 API mode fetches fault strategies from a centralized service and submits simulation results for team-wide analysis.
 
-## Usage
+## Installation
 
-### Gradle Plugin (Recommended)
-
-The Gradle plugin automatically configures AspectJ weaving without manual JVM arguments.
+### Step 1: Add JitPack Repository
 
 **settings.gradle.kts:**
 ```kotlin
-pluginManagement {
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        mavenLocal()  // For local development
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/at-boundary/metatest-rest-java")
-            credentials {
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: System.getenv("GPR_USER")
-                password = providers.gradleProperty("gpr.token").orNull
-                    ?: System.getenv("GPR_TOKEN")
-            }
-        }
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
+
+### Step 2: Add Dependency
 
 **build.gradle.kts:**
 ```kotlin
 plugins {
     java
-    id("io.metatest") version "1.0.0-dev-0e938b3"
-}
-
-repositories {
-    mavenCentral()
-    maven {
-        name = "GitHubPackages"
-        url = uri("https://maven.pkg.github.com/at-boundary/metatest-rest-java")
-        credentials {
-            username = findProperty("gpr.user") as String? ?: System.getenv("GPR_USER")
-            password = findProperty("gpr.token") as String? ?: System.getenv("GPR_TOKEN")
-        }
-    }
 }
 
 dependencies {
-    testImplementation("io.metatest:metatest:1.0.0-dev-0e938b3")
+    testImplementation("com.github.at-boundary:metatest-rest-java:v0.1.0")
 
     // Your existing test dependencies
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.1")
@@ -306,46 +284,33 @@ dependencies {
 }
 ```
 
-**Run tests:**
-```bash
-# Normal test execution (no mutation testing)
-./gradlew test
-
-# With Metatest fault simulation
-./gradlew test -DrunWithMetatest=true
-```
-
-The plugin automatically:
-- Locates `aspectjweaver.jar` on the test classpath
-- Configures `-javaagent` JVM argument
-- Sets heap size to `-Xmx2g -Xms512m`
-- Enables Metatest via system property
-
-### Manual Configuration (Library Only)
-
-If not using the Gradle plugin, configure AspectJ manually:
+### Step 3: Configure AspectJ Agent
 
 **build.gradle.kts:**
 ```kotlin
-dependencies {
-    testImplementation("io.metatest:metatest:1.0.0-dev-0e938b3")
-    testImplementation("org.aspectj:aspectjweaver:1.9.19")
-}
-
 tasks.test {
     useJUnitPlatform()
 
     val aspectjAgent = configurations.testRuntimeClasspath.get()
         .files.find { it.name.contains("aspectjweaver") }
 
-    jvmArgs(
-        "-javaagent:${aspectjAgent}",
-        "-Xmx2g",
-        "-Xms512m"
-    )
-
-    systemProperty("runWithMetatest", System.getProperty("runWithMetatest", "false"))
+    if (aspectjAgent != null) {
+        jvmArgs(
+            "-javaagent:$aspectjAgent",
+            "-DrunWithMetatest=${System.getProperty("runWithMetatest") ?: "false"}"
+        )
+    }
 }
+```
+
+### Step 4: Run Tests
+
+```bash
+# Normal test execution (no mutation testing)
+./gradlew test
+
+# With Metatest fault simulation enabled
+./gradlew test -DrunWithMetatest=true
 ```
 
 ## Reports and Analytics
@@ -719,8 +684,6 @@ Publishes three artifacts:
 Metatest applies mutation testing principles to integration testing. Traditional mutation testing modifies source code; Metatest modifies API responses at runtime.
 
 **Key Difference**: Metatest validates external contract adherence rather than internal logic coverage.
-
-**Academic Foundation**: Mutation testing dates to 1970s (DeMillo, Lipton, Sayward). Metatest extends this to distributed systems and API contracts.
 
 
 
