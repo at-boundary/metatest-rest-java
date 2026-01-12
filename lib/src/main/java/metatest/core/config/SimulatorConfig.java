@@ -3,20 +3,55 @@ package metatest.core.config;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Data
 public class SimulatorConfig {
+    /**
+     * Config version
+     */
+    public String version;
+
+    /**
+     * Global settings (default quantifier, etc.)
+     */
+    public Settings settings;
+
+    /**
+     * Endpoint-specific relation rules.
+     * Structure: Map<endpoint_path, Map<http_method, MethodRelationsConfig>>
+     * Example: endpoints."/api/v1/orders/{id}".GET.relations
+     */
+    public Map<String, Map<String, MethodRelationsConfig>> endpoints = new HashMap<>();
+
+    /**
+     * Legacy fault injection settings
+     */
     public Faults faults;
+
+    /**
+     * Simulation behavior settings
+     */
     public Simulation simulation;
+
+    /**
+     * Exclusion patterns for endpoints, tests, and URLs
+     */
+    public Exclusions exclusions;
+
+    /**
+     * Report output configuration
+     */
+    public Report report;
+
+    // Legacy fields (kept for backward compatibility during transition)
     public Semantics semantics;
     public SemanticFaults semanticFaults;
     public QualityAnalysis qualityAnalysis;
     public Url url;
-    public Endpoints endpoints;
     public Tests tests;
-    public Report report;
 
     @Data
     public static class Faults {
@@ -180,6 +215,39 @@ public class SimulatorConfig {
         public boolean suggest_improvements;
     }
 
+    /**
+     * Global settings for relation evaluation
+     */
+    @Data
+    public static class Settings {
+        /**
+         * Default quantifier for array fields: "all" (default), "any", "none"
+         */
+        public String default_quantifier = "all";
+    }
+
+    /**
+     * Exclusion patterns for endpoints, URLs, and tests
+     */
+    @Data
+    public static class Exclusions {
+        /**
+         * URL patterns to exclude from simulation (glob patterns)
+         */
+        public List<String> urls;
+
+        /**
+         * Endpoint patterns to exclude from simulation (glob patterns)
+         */
+        public List<String> endpoints;
+
+        /**
+         * Test name patterns to exclude from simulation (glob patterns)
+         */
+        public List<String> tests;
+    }
+
+    // Legacy exclusion classes (kept for backward compatibility)
     @Data
     public static class Url {
         public List<String> exclude;
@@ -431,5 +499,68 @@ public class SimulatorConfig {
         defaultStrategy.test_only_last_endpoint = true;
         defaultStrategy.exclude_endpoints = new ArrayList<>();
         return defaultStrategy;
+    }
+
+    /**
+     * Gets relation rules for a specific endpoint and HTTP method.
+     *
+     * @param endpointPath The endpoint path (e.g., "/api/v1/orders/{order_id}")
+     * @param httpMethod The HTTP method (e.g., "GET", "POST")
+     * @return List of relation configs, empty list if none configured
+     */
+    public static List<RelationConfig> getRelationsForEndpoint(String endpointPath, String httpMethod) {
+        SimulatorConfig config = configSource.getConfig();
+        if (config == null || config.endpoints == null) {
+            return new ArrayList<>();
+        }
+
+        Map<String, MethodRelationsConfig> methodConfigs = config.endpoints.get(endpointPath);
+        if (methodConfigs == null) {
+            return new ArrayList<>();
+        }
+
+        MethodRelationsConfig methodConfig = methodConfigs.get(httpMethod.toUpperCase());
+        if (methodConfig == null || methodConfig.getRelations() == null) {
+            return new ArrayList<>();
+        }
+
+        return methodConfig.getRelations();
+    }
+
+    /**
+     * Gets the default quantifier for array field evaluations.
+     *
+     * @return The default quantifier ("all", "any", or "none"), defaults to "all"
+     */
+    public static String getDefaultQuantifier() {
+        SimulatorConfig config = configSource.getConfig();
+        if (config != null && config.settings != null && config.settings.default_quantifier != null) {
+            return config.settings.default_quantifier;
+        }
+        return "all";
+    }
+
+    /**
+     * Checks if there are any relation rules configured for the given endpoint and method.
+     *
+     * @param endpointPath The endpoint path
+     * @param httpMethod The HTTP method
+     * @return true if relations are configured
+     */
+    public static boolean hasRelations(String endpointPath, String httpMethod) {
+        return !getRelationsForEndpoint(endpointPath, httpMethod).isEmpty();
+    }
+
+    /**
+     * Gets all configured endpoints with relations.
+     *
+     * @return Map of endpoint paths to their method configurations
+     */
+    public static Map<String, Map<String, MethodRelationsConfig>> getAllEndpointRelations() {
+        SimulatorConfig config = configSource.getConfig();
+        if (config == null || config.endpoints == null) {
+            return new HashMap<>();
+        }
+        return config.endpoints;
     }
 }

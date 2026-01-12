@@ -14,12 +14,14 @@ import java.util.stream.Collectors;
 
 public class ApacheHTTPRequest implements Request {
     private final String url;
+    private final String method;
     private final Map<String, Object> headers;
     private final String body;
 
 
     public ApacheHTTPRequest(HttpRequestBase requestBase) {
         this.url = requestBase.getURI().toString();
+        this.method = requestBase.getMethod();
         this.headers = extractHeaders(requestBase);
         this.body = extractBody(requestBase);
     }
@@ -60,6 +62,11 @@ public class ApacheHTTPRequest implements Request {
     @Override
     public String getUrl() {
         return url;
+    }
+
+    @Override
+    public String getMethod() {
+        return method;
     }
 
     @Override

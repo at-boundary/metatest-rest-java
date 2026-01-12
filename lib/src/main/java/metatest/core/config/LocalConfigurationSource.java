@@ -19,9 +19,43 @@ public class LocalConfigurationSource implements ConfigurationSource {
 
     public LocalConfigurationSource() {
         this.config = loadConfig();
-        this.urlExcludePatterns = compilePatterns(config.url != null ? config.url.exclude : null);
-        this.endpointExcludePatterns = compilePatterns(config.endpoints != null ? config.endpoints.exclude : null);
-        this.testExcludePatterns = compilePatterns(config.tests != null ? config.tests.exclude : null);
+        // Support both new exclusions structure and legacy structure
+        this.urlExcludePatterns = compilePatterns(getUrlExclusions());
+        this.endpointExcludePatterns = compilePatterns(getEndpointExclusions());
+        this.testExcludePatterns = compilePatterns(getTestExclusions());
+    }
+
+    private List<String> getUrlExclusions() {
+        // New structure first
+        if (config.exclusions != null && config.exclusions.urls != null) {
+            return config.exclusions.urls;
+        }
+        // Legacy fallback
+        if (config.url != null && config.url.exclude != null) {
+            return config.url.exclude;
+        }
+        return null;
+    }
+
+    private List<String> getEndpointExclusions() {
+        // New structure first
+        if (config.exclusions != null && config.exclusions.endpoints != null) {
+            return config.exclusions.endpoints;
+        }
+        // Note: config.endpoints is now a Map for relations, not the legacy exclusion list
+        return null;
+    }
+
+    private List<String> getTestExclusions() {
+        // New structure first
+        if (config.exclusions != null && config.exclusions.tests != null) {
+            return config.exclusions.tests;
+        }
+        // Legacy fallback
+        if (config.tests != null && config.tests.exclude != null) {
+            return config.tests.exclude;
+        }
+        return null;
     }
 
     private SimulatorConfig loadConfig() {

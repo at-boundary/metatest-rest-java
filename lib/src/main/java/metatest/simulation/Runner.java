@@ -11,6 +11,7 @@ import metatest.injection.EmptyListStrategy;
 import metatest.injection.EmptyStringStrategy;
 import metatest.injection.MissingFieldStrategy;
 import metatest.injection.NullFieldStrategy;
+import metatest.relation.RelationSimulator;
 import metatest.simulation.FaultSimulationReport;
 import metatest.simulation.TestLevelSimulationResults;
 import metatest.core.normalizer.EndpointPatternNormalizer;
@@ -94,6 +95,7 @@ public final class Runner {
             // Set which request we're currently simulating
             context.setCurrentSimulationIndex(requestIndex);
 
+            // === Contract Faults (field-level mutations) ===
             for (String field : originalResponse.getResponseAsMap().keySet()) {
                 for (FaultCollection fault : ENABLED_FAULTS) {
                     setFieldFault(context, field, fault, originalResponse, endpointPattern);
@@ -118,6 +120,12 @@ public final class Runner {
                     REPORT.recordResult(endpointPattern, field, fault.name(), testLevelResults);
                 }
             }
+
+            // === Relation Violations (business rule mutations) ===
+            String httpMethod = originalRequest.getMethod();
+            RelationSimulator.simulateRelationViolations(
+                    joinPoint, context, testName, endpointPattern, httpMethod,
+                    originalResponse, requestIndex);
         }
 
         // Reset simulation index after all requests are simulated

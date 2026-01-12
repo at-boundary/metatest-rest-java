@@ -114,10 +114,19 @@ public class HtmlReportGenerator {
         // Calculate metrics
         int totalEndpoints = faultSimulation != null ? faultSimulation.size() : 0;
         int[] faultStats = calculateFaultStats(faultSimulation);
+        // [total, detected, escaped, relationTotal, relationDetected, relationEscaped]
         int totalFaults = faultStats[0];
         int detectedFaults = faultStats[1];
         int escapedFaults = faultStats[2];
-        double detectionRate = totalFaults > 0 ? (detectedFaults * 100.0 / totalFaults) : 0;
+        int relationTotal = faultStats[3];
+        int relationDetected = faultStats[4];
+        int relationEscaped = faultStats[5];
+
+        // Combined stats for overall detection rate
+        int allTotal = totalFaults + relationTotal;
+        int allDetected = detectedFaults + relationDetected;
+        int allEscaped = escapedFaults + relationEscaped;
+        double detectionRate = allTotal > 0 ? (allDetected * 100.0 / allTotal) : 0;
 
         int untestedEndpoints = 0;
         double coveragePercentage = 0;
@@ -134,28 +143,41 @@ public class HtmlReportGenerator {
         StringBuilder cards = new StringBuilder();
         cards.append("  <div class=\"summary-cards\">\n");
 
-        // Card 1: Detection Rate
+        // Card 1: Overall Detection Rate
         String rateClass = detectionRate >= 90 ? "good" : detectionRate >= 70 ? "warning" : "bad";
         cards.append("    <div class=\"card\">\n");
-        cards.append("      <div class=\"card-title\">Fault Detection Rate</div>\n");
+        cards.append("      <div class=\"card-title\">Overall Detection Rate</div>\n");
         cards.append("      <div class=\"card-value " + rateClass + "\">" + String.format("%.1f%%", detectionRate) + "</div>\n");
-        cards.append("      <div class=\"card-subtitle\">" + detectedFaults + " of " + totalFaults + " faults detected</div>\n");
+        cards.append("      <div class=\"card-subtitle\">" + allDetected + " of " + allTotal + " faults detected</div>\n");
         cards.append("    </div>\n");
 
-        // Card 2: Escaped Faults
+        // Card 2: Contract Faults
+        double contractRate = totalFaults > 0 ? (detectedFaults * 100.0 / totalFaults) : 0;
+        String contractClass = contractRate >= 90 ? "good" : contractRate >= 70 ? "warning" : "bad";
         cards.append("    <div class=\"card\">\n");
-        cards.append("      <div class=\"card-title\">Escaped Faults</div>\n");
-        cards.append("      <div class=\"card-value " + (escapedFaults == 0 ? "good" : "warning") + "\">" + escapedFaults + "</div>\n");
-        cards.append("      <div class=\"card-subtitle\">Faults not detected by tests</div>\n");
+        cards.append("      <div class=\"card-title\">Contract Faults</div>\n");
+        cards.append("      <div class=\"card-value " + contractClass + "\">" + String.format("%.0f%%", contractRate) + "</div>\n");
+        cards.append("      <div class=\"card-subtitle\">" + detectedFaults + "/" + totalFaults + " detected (" + escapedFaults + " escaped)</div>\n");
         cards.append("    </div>\n");
 
-        // Card 3: Endpoint Coverage
-        String covClass = coveragePercentage >= 80 ? "good" : coveragePercentage >= 50 ? "warning" : "bad";
-        cards.append("    <div class=\"card\">\n");
-        cards.append("      <div class=\"card-title\">Endpoint Coverage</div>\n");
-        cards.append("      <div class=\"card-value " + covClass + "\">" + String.format("%.1f%%", coveragePercentage) + "</div>\n");
-        cards.append("      <div class=\"card-subtitle\">" + untestedEndpoints + " endpoints untested</div>\n");
-        cards.append("    </div>\n");
+        // Card 3: Relation Violations
+        if (relationTotal > 0) {
+            double relationRate = (relationDetected * 100.0 / relationTotal);
+            String relationClass = relationRate >= 90 ? "good" : relationRate >= 70 ? "warning" : "bad";
+            cards.append("    <div class=\"card\">\n");
+            cards.append("      <div class=\"card-title\">Relation Violations</div>\n");
+            cards.append("      <div class=\"card-value " + relationClass + "\">" + String.format("%.0f%%", relationRate) + "</div>\n");
+            cards.append("      <div class=\"card-subtitle\">" + relationDetected + "/" + relationTotal + " detected (" + relationEscaped + " escaped)</div>\n");
+            cards.append("    </div>\n");
+        } else {
+            // Card 3: Endpoint Coverage (when no relations)
+            String covClass = coveragePercentage >= 80 ? "good" : coveragePercentage >= 50 ? "warning" : "bad";
+            cards.append("    <div class=\"card\">\n");
+            cards.append("      <div class=\"card-title\">Endpoint Coverage</div>\n");
+            cards.append("      <div class=\"card-value " + covClass + "\">" + String.format("%.1f%%", coveragePercentage) + "</div>\n");
+            cards.append("      <div class=\"card-subtitle\">" + untestedEndpoints + " endpoints untested</div>\n");
+            cards.append("    </div>\n");
+        }
 
         // Card 4: Tested Endpoints
         cards.append("    <div class=\"card\">\n");
@@ -170,12 +192,16 @@ public class HtmlReportGenerator {
     }
 
     private static int[] calculateFaultStats(JsonNode faultSimulation) {
+        // Returns: [total, detected, escaped, relationTotal, relationDetected, relationEscaped]
         int total = 0;
         int detected = 0;
         int escaped = 0;
+        int relationTotal = 0;
+        int relationDetected = 0;
+        int relationEscaped = 0;
 
         if (faultSimulation == null || faultSimulation.isNull()) {
-            return new int[]{0, 0, 0};
+            return new int[]{0, 0, 0, 0, 0, 0};
         }
 
         Iterator<Map.Entry<String, JsonNode>> endpoints = faultSimulation.fields();
@@ -191,21 +217,33 @@ public class HtmlReportGenerator {
                 Iterator<Map.Entry<String, JsonNode>> faultIter = faultTypes.fields();
                 while (faultIter.hasNext()) {
                     Map.Entry<String, JsonNode> fault = faultIter.next();
+                    String faultType = fault.getKey();
                     JsonNode faultData = fault.getValue();
 
-                    total++;
+                    boolean isRelation = faultType.startsWith("relation:");
                     boolean caughtByAny = faultData.has("caught_by_any_test") &&
                                         faultData.get("caught_by_any_test").asBoolean();
-                    if (caughtByAny) {
-                        detected++;
+
+                    if (isRelation) {
+                        relationTotal++;
+                        if (caughtByAny) {
+                            relationDetected++;
+                        } else {
+                            relationEscaped++;
+                        }
                     } else {
-                        escaped++;
+                        total++;
+                        if (caughtByAny) {
+                            detected++;
+                        } else {
+                            escaped++;
+                        }
                     }
                 }
             }
         }
 
-        return new int[]{total, detected, escaped};
+        return new int[]{total, detected, escaped, relationTotal, relationDetected, relationEscaped};
     }
 
     private static String buildFaultSimulationSection(JsonNode faultSimulation) {
@@ -229,6 +267,9 @@ public class HtmlReportGenerator {
             int detectedFaults = 0;
             int escapedFaults = 0;
 
+            int contractFaults = 0, contractDetected = 0, contractEscaped = 0;
+            int relationFaults = 0, relationDetected = 0, relationEscaped = 0;
+
             Iterator<Map.Entry<String, JsonNode>> summaryFieldIter = fields.fields();
             while (summaryFieldIter.hasNext()) {
                 Map.Entry<String, JsonNode> field = summaryFieldIter.next();
@@ -237,26 +278,38 @@ public class HtmlReportGenerator {
                 Iterator<Map.Entry<String, JsonNode>> summaryFaultTypeIter = faultTypes.fields();
                 while (summaryFaultTypeIter.hasNext()) {
                     Map.Entry<String, JsonNode> faultType = summaryFaultTypeIter.next();
+                    String faultTypeName = faultType.getKey();
                     JsonNode faultData = faultType.getValue();
-                    totalFaults++;
+                    boolean isRelation = faultTypeName.startsWith("relation:");
                     boolean caught = faultData.has("caught_by_any_test") &&
                                     faultData.get("caught_by_any_test").asBoolean();
-                    if (caught) {
-                        detectedFaults++;
+
+                    if (isRelation) {
+                        relationFaults++;
+                        if (caught) relationDetected++; else relationEscaped++;
                     } else {
-                        escapedFaults++;
+                        contractFaults++;
+                        if (caught) contractDetected++; else contractEscaped++;
                     }
                 }
             }
+
+            totalFaults = contractFaults + relationFaults;
+            detectedFaults = contractDetected + relationDetected;
+            escapedFaults = contractEscaped + relationEscaped;
 
             section.append("    <div class=\"endpoint-card\">\n");
             section.append("      <div class=\"endpoint-header collapsible\" onclick=\"toggleEndpoint(" + endpointIndex + ")\">\n");
             section.append("        <div class=\"endpoint-title-section\">\n");
             section.append("          <span class=\"endpoint-path\">" + escapeHtml(endpointPath) + "</span>\n");
             section.append("          <div class=\"endpoint-summary\">\n");
-            section.append("            <span class=\"summary-badge detected\">" + detectedFaults + " detected</span>\n");
+            if (relationFaults > 0) {
+                section.append("            <span class=\"summary-badge detected\">" + contractDetected + "/" + contractFaults + " contract</span>\n");
+                section.append("            <span class=\"summary-badge relation\">" + relationDetected + "/" + relationFaults + " relation</span>\n");
+            } else {
+                section.append("            <span class=\"summary-badge detected\">" + detectedFaults + " detected</span>\n");
+            }
             section.append("            <span class=\"summary-badge escaped\">" + escapedFaults + " escaped</span>\n");
-            section.append("            <span class=\"summary-badge total\">" + totalFaults + " total</span>\n");
             section.append("          </div>\n");
             section.append("        </div>\n");
             section.append("        <span class=\"collapse-icon collapsed\">▼</span>\n");
@@ -286,13 +339,18 @@ public class HtmlReportGenerator {
 
                     boolean caught = faultData.has("caught_by_any_test") &&
                                     faultData.get("caught_by_any_test").asBoolean();
+                    boolean isRelation = faultType.startsWith("relation:");
+
+                    // Format fault type display name
+                    String displayFaultType = isRelation ? faultType.substring(9) : faultType; // Remove "relation:" prefix
+                    String badgeClass = isRelation ? "fault-badge relation-badge" : "fault-badge";
 
                     JsonNode details = faultData.get("details");
                     int testCount = details != null ? details.size() : 0;
 
                     section.append("        <div class=\"fault-row\">\n");
                     section.append("          <div class=\"fault-cell\"><code>" + escapeHtml(fieldName) + "</code></div>\n");
-                    section.append("          <div class=\"fault-cell\"><span class=\"fault-badge\">" + faultType + "</span></div>\n");
+                    section.append("          <div class=\"fault-cell\"><span class=\"" + badgeClass + "\">" + escapeHtml(displayFaultType) + "</span></div>\n");
                     section.append("          <div class=\"fault-cell\">");
                     section.append("<span class=\"status-badge " + (caught ? "detected" : "escaped") + "\">");
                     section.append(caught ? "✓ Detected" : "✗ Escaped");
@@ -955,6 +1013,18 @@ body {
     border: 1px solid var(--border-color);
 }
 
+.summary-badge.relation {
+    background: #e0e7ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+}
+
+[data-theme="dark"] .summary-badge.relation {
+    background: #312e81;
+    color: #a5b4fc;
+    border: 1px solid #4338ca;
+}
+
 .collapse-icon {
     font-size: 1.2em;
     transition: transform 0.2s;
@@ -1028,6 +1098,19 @@ body {
     font-weight: 500;
     text-transform: uppercase;
     border: 1px solid var(--border-color);
+}
+
+.fault-badge.relation-badge {
+    background: #e0e7ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+    text-transform: none;
+}
+
+[data-theme="dark"] .fault-badge.relation-badge {
+    background: #312e81;
+    color: #a5b4fc;
+    border: 1px solid #4338ca;
 }
 
 .status-badge {
