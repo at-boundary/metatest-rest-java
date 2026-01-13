@@ -149,9 +149,8 @@ public class RelationSimulator {
                 context.clearSimulation();
             }
 
-            // Record result with relation name as the fault type
-            String faultType = "relation:" + relationName;
-            REPORT.recordResult(endpointPattern, field, faultType, testLevelResults);
+            // Record result with relation name
+            REPORT.recordRelationResult(endpointPattern, relationName, testLevelResults);
 
         } catch (IOException e) {
             System.err.printf("    [ERROR] Failed to apply mutation for relation '%s': %s%n",

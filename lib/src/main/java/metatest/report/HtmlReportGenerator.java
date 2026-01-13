@@ -207,37 +207,48 @@ public class HtmlReportGenerator {
         Iterator<Map.Entry<String, JsonNode>> endpoints = faultSimulation.fields();
         while (endpoints.hasNext()) {
             Map.Entry<String, JsonNode> endpoint = endpoints.next();
-            JsonNode fields = endpoint.getValue();
+            JsonNode endpointData = endpoint.getValue();
 
-            Iterator<Map.Entry<String, JsonNode>> fieldIter = fields.fields();
-            while (fieldIter.hasNext()) {
-                Map.Entry<String, JsonNode> field = fieldIter.next();
-                JsonNode faultTypes = field.getValue();
+            // Process contract_faults: faultType -> field -> result
+            if (endpointData.has("contract_faults")) {
+                JsonNode contractFaults = endpointData.get("contract_faults");
+                Iterator<Map.Entry<String, JsonNode>> faultTypeIter = contractFaults.fields();
+                while (faultTypeIter.hasNext()) {
+                    Map.Entry<String, JsonNode> faultTypeEntry = faultTypeIter.next();
+                    JsonNode fields = faultTypeEntry.getValue();
 
-                Iterator<Map.Entry<String, JsonNode>> faultIter = faultTypes.fields();
-                while (faultIter.hasNext()) {
-                    Map.Entry<String, JsonNode> fault = faultIter.next();
-                    String faultType = fault.getKey();
-                    JsonNode faultData = fault.getValue();
+                    Iterator<Map.Entry<String, JsonNode>> fieldIter = fields.fields();
+                    while (fieldIter.hasNext()) {
+                        Map.Entry<String, JsonNode> fieldEntry = fieldIter.next();
+                        JsonNode faultData = fieldEntry.getValue();
 
-                    boolean isRelation = faultType.startsWith("relation:");
-                    boolean caughtByAny = faultData.has("caught_by_any_test") &&
-                                        faultData.get("caught_by_any_test").asBoolean();
-
-                    if (isRelation) {
-                        relationTotal++;
-                        if (caughtByAny) {
-                            relationDetected++;
-                        } else {
-                            relationEscaped++;
-                        }
-                    } else {
+                        boolean caughtByAny = faultData.has("caught_by_any_test") &&
+                                            faultData.get("caught_by_any_test").asBoolean();
                         total++;
                         if (caughtByAny) {
                             detected++;
                         } else {
                             escaped++;
                         }
+                    }
+                }
+            }
+
+            // Process relation_faults: relationName -> result
+            if (endpointData.has("relation_faults")) {
+                JsonNode relationFaults = endpointData.get("relation_faults");
+                Iterator<Map.Entry<String, JsonNode>> relationIter = relationFaults.fields();
+                while (relationIter.hasNext()) {
+                    Map.Entry<String, JsonNode> relationEntry = relationIter.next();
+                    JsonNode faultData = relationEntry.getValue();
+
+                    boolean caughtByAny = faultData.has("caught_by_any_test") &&
+                                        faultData.get("caught_by_any_test").asBoolean();
+                    relationTotal++;
+                    if (caughtByAny) {
+                        relationDetected++;
+                    } else {
+                        relationEscaped++;
                     }
                 }
             }
@@ -260,43 +271,49 @@ public class HtmlReportGenerator {
         while (endpoints.hasNext()) {
             Map.Entry<String, JsonNode> endpoint = endpoints.next();
             String endpointPath = endpoint.getKey();
-            JsonNode fields = endpoint.getValue();
+            JsonNode endpointData = endpoint.getValue();
 
             // Calculate summary for this endpoint
-            int totalFaults = 0;
-            int detectedFaults = 0;
-            int escapedFaults = 0;
-
             int contractFaults = 0, contractDetected = 0, contractEscaped = 0;
             int relationFaults = 0, relationDetected = 0, relationEscaped = 0;
 
-            Iterator<Map.Entry<String, JsonNode>> summaryFieldIter = fields.fields();
-            while (summaryFieldIter.hasNext()) {
-                Map.Entry<String, JsonNode> field = summaryFieldIter.next();
-                JsonNode faultTypes = field.getValue();
+            // Count contract faults
+            if (endpointData.has("contract_faults")) {
+                JsonNode contractFaultsNode = endpointData.get("contract_faults");
+                Iterator<Map.Entry<String, JsonNode>> faultTypeIter = contractFaultsNode.fields();
+                while (faultTypeIter.hasNext()) {
+                    Map.Entry<String, JsonNode> faultTypeEntry = faultTypeIter.next();
+                    JsonNode fields = faultTypeEntry.getValue();
 
-                Iterator<Map.Entry<String, JsonNode>> summaryFaultTypeIter = faultTypes.fields();
-                while (summaryFaultTypeIter.hasNext()) {
-                    Map.Entry<String, JsonNode> faultType = summaryFaultTypeIter.next();
-                    String faultTypeName = faultType.getKey();
-                    JsonNode faultData = faultType.getValue();
-                    boolean isRelation = faultTypeName.startsWith("relation:");
-                    boolean caught = faultData.has("caught_by_any_test") &&
-                                    faultData.get("caught_by_any_test").asBoolean();
-
-                    if (isRelation) {
-                        relationFaults++;
-                        if (caught) relationDetected++; else relationEscaped++;
-                    } else {
+                    Iterator<Map.Entry<String, JsonNode>> fieldIter = fields.fields();
+                    while (fieldIter.hasNext()) {
+                        Map.Entry<String, JsonNode> fieldEntry = fieldIter.next();
+                        JsonNode faultData = fieldEntry.getValue();
+                        boolean caught = faultData.has("caught_by_any_test") &&
+                                        faultData.get("caught_by_any_test").asBoolean();
                         contractFaults++;
                         if (caught) contractDetected++; else contractEscaped++;
                     }
                 }
             }
 
-            totalFaults = contractFaults + relationFaults;
-            detectedFaults = contractDetected + relationDetected;
-            escapedFaults = contractEscaped + relationEscaped;
+            // Count relation faults
+            if (endpointData.has("relation_faults")) {
+                JsonNode relationFaultsNode = endpointData.get("relation_faults");
+                Iterator<Map.Entry<String, JsonNode>> relationIter = relationFaultsNode.fields();
+                while (relationIter.hasNext()) {
+                    Map.Entry<String, JsonNode> relationEntry = relationIter.next();
+                    JsonNode faultData = relationEntry.getValue();
+                    boolean caught = faultData.has("caught_by_any_test") &&
+                                    faultData.get("caught_by_any_test").asBoolean();
+                    relationFaults++;
+                    if (caught) relationDetected++; else relationEscaped++;
+                }
+            }
+
+            int totalFaults = contractFaults + relationFaults;
+            int detectedFaults = contractDetected + relationDetected;
+            int escapedFaults = contractEscaped + relationEscaped;
 
             section.append("    <div class=\"endpoint-card\">\n");
             section.append("      <div class=\"endpoint-header collapsible\" onclick=\"toggleEndpoint(" + endpointIndex + ")\">\n");
@@ -316,7 +333,7 @@ public class HtmlReportGenerator {
             section.append("      </div>\n");
             section.append("      <div id=\"endpoint-" + endpointIndex + "\" class=\"endpoint-content collapsed\">\n");
 
-            // Build field table
+            // Build fault table
             section.append("      <div class=\"fault-table\">\n");
             section.append("        <div class=\"fault-table-header\">\n");
             section.append("          <div class=\"fault-cell\">Field</div>\n");
@@ -325,49 +342,128 @@ public class HtmlReportGenerator {
             section.append("          <div class=\"fault-cell\">Details</div>\n");
             section.append("        </div>\n");
 
-            Iterator<Map.Entry<String, JsonNode>> fieldIter = fields.fields();
-            while (fieldIter.hasNext()) {
-                Map.Entry<String, JsonNode> field = fieldIter.next();
-                String fieldName = field.getKey();
-                JsonNode faultTypes = field.getValue();
+            // Render contract faults: faultType -> field -> result
+            if (endpointData.has("contract_faults")) {
+                JsonNode contractFaultsNode = endpointData.get("contract_faults");
+                Iterator<Map.Entry<String, JsonNode>> faultTypeIter = contractFaultsNode.fields();
+                while (faultTypeIter.hasNext()) {
+                    Map.Entry<String, JsonNode> faultTypeEntry = faultTypeIter.next();
+                    String faultType = faultTypeEntry.getKey();
+                    JsonNode fields = faultTypeEntry.getValue();
 
-                Iterator<Map.Entry<String, JsonNode>> faultIter = faultTypes.fields();
-                while (faultIter.hasNext()) {
-                    Map.Entry<String, JsonNode> fault = faultIter.next();
-                    String faultType = fault.getKey();
-                    JsonNode faultData = fault.getValue();
+                    Iterator<Map.Entry<String, JsonNode>> fieldIter = fields.fields();
+                    while (fieldIter.hasNext()) {
+                        Map.Entry<String, JsonNode> fieldEntry = fieldIter.next();
+                        String fieldName = fieldEntry.getKey();
+                        JsonNode faultData = fieldEntry.getValue();
+
+                        boolean caught = faultData.has("caught_by_any_test") &&
+                                        faultData.get("caught_by_any_test").asBoolean();
+
+                        // Get tested_by and caught_by
+                        JsonNode testedBy = faultData.get("tested_by");
+                        JsonNode caughtBy = faultData.get("caught_by");
+                        int testedCount = testedBy != null && testedBy.isArray() ? testedBy.size() : 0;
+                        int caughtCount = caughtBy != null && caughtBy.isArray() ? caughtBy.size() : 0;
+
+                        section.append("        <div class=\"fault-row\">\n");
+                        section.append("          <div class=\"fault-cell\"><code>" + escapeHtml(fieldName) + "</code></div>\n");
+                        section.append("          <div class=\"fault-cell\"><span class=\"fault-badge\">" + escapeHtml(faultType) + "</span></div>\n");
+                        section.append("          <div class=\"fault-cell\">");
+                        section.append("<span class=\"status-badge " + (caught ? "detected" : "escaped") + "\">");
+                        section.append(caught ? "✓ Detected" : "✗ Escaped");
+                        section.append("</span></div>\n");
+                        section.append("          <div class=\"fault-cell\">");
+                        section.append("<button class=\"details-btn\" onclick=\"toggleDetails(this)\">View " + testedCount + " test(s)</button>");
+                        section.append("<div class=\"test-details\" style=\"display:none;\">");
+
+                        // Show all tests that tested this mutation
+                        if (testedBy != null && testedBy.isArray()) {
+                            for (JsonNode testName : testedBy) {
+                                String test = testName.asText();
+                                // Check if this test caught the fault
+                                boolean testCaught = false;
+                                String error = null;
+                                if (caughtBy != null && caughtBy.isArray()) {
+                                    for (JsonNode caughtDetail : caughtBy) {
+                                        if (caughtDetail.has("test") && caughtDetail.get("test").asText().equals(test)) {
+                                            testCaught = true;
+                                            if (caughtDetail.has("error") && !caughtDetail.get("error").isNull()) {
+                                                error = caughtDetail.get("error").asText();
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                section.append("<div class=\"test-detail-item\">");
+                                section.append("<span class=\"test-name\">" + escapeHtml(test) + "</span>");
+                                section.append("<span class=\"status-badge " + (testCaught ? "detected" : "escaped") + "\">");
+                                section.append(testCaught ? "✓" : "✗");
+                                section.append("</span>");
+                                if (error != null) {
+                                    section.append("<div class=\"error-message\">" + escapeHtml(error) + "</div>");
+                                }
+                                section.append("</div>");
+                            }
+                        }
+
+                        section.append("</div>");
+                        section.append("</div>\n");
+                        section.append("        </div>\n");
+                    }
+                }
+            }
+
+            // Render relation faults: relationName -> result
+            if (endpointData.has("relation_faults")) {
+                JsonNode relationFaultsNode = endpointData.get("relation_faults");
+                Iterator<Map.Entry<String, JsonNode>> relationIter = relationFaultsNode.fields();
+                while (relationIter.hasNext()) {
+                    Map.Entry<String, JsonNode> relationEntry = relationIter.next();
+                    String relationName = relationEntry.getKey();
+                    JsonNode faultData = relationEntry.getValue();
 
                     boolean caught = faultData.has("caught_by_any_test") &&
                                     faultData.get("caught_by_any_test").asBoolean();
-                    boolean isRelation = faultType.startsWith("relation:");
 
-                    // Format fault type display name
-                    String displayFaultType = isRelation ? faultType.substring(9) : faultType; // Remove "relation:" prefix
-                    String badgeClass = isRelation ? "fault-badge relation-badge" : "fault-badge";
-
-                    JsonNode details = faultData.get("details");
-                    int testCount = details != null ? details.size() : 0;
+                    // Get tested_by and caught_by
+                    JsonNode testedBy = faultData.get("tested_by");
+                    JsonNode caughtBy = faultData.get("caught_by");
+                    int testedCount = testedBy != null && testedBy.isArray() ? testedBy.size() : 0;
 
                     section.append("        <div class=\"fault-row\">\n");
-                    section.append("          <div class=\"fault-cell\"><code>" + escapeHtml(fieldName) + "</code></div>\n");
-                    section.append("          <div class=\"fault-cell\"><span class=\"" + badgeClass + "\">" + escapeHtml(displayFaultType) + "</span></div>\n");
+                    section.append("          <div class=\"fault-cell\"><code>-</code></div>\n");
+                    section.append("          <div class=\"fault-cell\"><span class=\"fault-badge relation-badge\">" + escapeHtml(relationName) + "</span></div>\n");
                     section.append("          <div class=\"fault-cell\">");
                     section.append("<span class=\"status-badge " + (caught ? "detected" : "escaped") + "\">");
                     section.append(caught ? "✓ Detected" : "✗ Escaped");
                     section.append("</span></div>\n");
                     section.append("          <div class=\"fault-cell\">");
-                    section.append("<button class=\"details-btn\" onclick=\"toggleDetails(this)\">View " + testCount + " test(s)</button>");
+                    section.append("<button class=\"details-btn\" onclick=\"toggleDetails(this)\">View " + testedCount + " test(s)</button>");
                     section.append("<div class=\"test-details\" style=\"display:none;\">");
 
-                    if (details != null && details.isArray()) {
-                        for (JsonNode testDetail : details) {
-                            String testName = testDetail.has("test") ? testDetail.get("test").asText() : "Unknown";
-                            boolean testCaught = testDetail.has("caught") && testDetail.get("caught").asBoolean();
-                            String error = testDetail.has("error") && !testDetail.get("error").isNull()
-                                         ? testDetail.get("error").asText() : null;
+                    // Show all tests that tested this relation
+                    if (testedBy != null && testedBy.isArray()) {
+                        for (JsonNode testName : testedBy) {
+                            String test = testName.asText();
+                            // Check if this test caught the fault
+                            boolean testCaught = false;
+                            String error = null;
+                            if (caughtBy != null && caughtBy.isArray()) {
+                                for (JsonNode caughtDetail : caughtBy) {
+                                    if (caughtDetail.has("test") && caughtDetail.get("test").asText().equals(test)) {
+                                        testCaught = true;
+                                        if (caughtDetail.has("error") && !caughtDetail.get("error").isNull()) {
+                                            error = caughtDetail.get("error").asText();
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
 
                             section.append("<div class=\"test-detail-item\">");
-                            section.append("<span class=\"test-name\">" + escapeHtml(testName) + "</span>");
+                            section.append("<span class=\"test-name\">" + escapeHtml(test) + "</span>");
                             section.append("<span class=\"status-badge " + (testCaught ? "detected" : "escaped") + "\">");
                             section.append(testCaught ? "✓" : "✗");
                             section.append("</span>");

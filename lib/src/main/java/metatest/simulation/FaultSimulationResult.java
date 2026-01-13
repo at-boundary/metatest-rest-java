@@ -21,14 +21,21 @@ public class FaultSimulationResult {
     private boolean caughtByAnyTest;
 
     /**
-     * Detailed results from each individual test that ran with this fault simulation.
+     * List of all test names that were used to test this mutation.
      */
-    @JsonProperty("details")
-    private List<TestLevelSimulationResults> details;
+    @JsonProperty("tested_by")
+    private List<String> testedBy;
+
+    /**
+     * Detailed results from tests that caught this fault.
+     */
+    @JsonProperty("caught_by")
+    private List<TestLevelSimulationResults> caughtBy;
 
     public FaultSimulationResult() {
         this.caughtByAnyTest = false;
-        this.details = new ArrayList<>();
+        this.testedBy = new ArrayList<>();
+        this.caughtBy = new ArrayList<>();
     }
 
     /**
@@ -42,10 +49,15 @@ public class FaultSimulationResult {
             return;
         }
 
-        details.add(testResult);
+        // Always add to tested_by list
+        if (!testedBy.contains(testResult.getTest())) {
+            testedBy.add(testResult.getTest());
+        }
 
+        // Only add to caught_by if the test caught the fault
         if (testResult.isCaught()) {
             caughtByAnyTest = true;
+            caughtBy.add(testResult);
         }
     }
 
@@ -55,7 +67,7 @@ public class FaultSimulationResult {
      */
     @JsonIgnore
     public boolean isEmpty() {
-        return details.isEmpty();
+        return testedBy.isEmpty();
     }
 
     /**
@@ -64,6 +76,16 @@ public class FaultSimulationResult {
      */
     @JsonIgnore
     public int size() {
-        return details.size();
+        return testedBy.size();
+    }
+
+    /**
+     * Returns the detailed results (for backward compatibility).
+     * @deprecated Use getCaughtBy() instead
+     */
+    @JsonIgnore
+    @Deprecated
+    public List<TestLevelSimulationResults> getDetails() {
+        return caughtBy;
     }
 }

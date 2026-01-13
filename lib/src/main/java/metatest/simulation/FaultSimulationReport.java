@@ -16,7 +16,7 @@ public class FaultSimulationReport {
     private static final FaultSimulationReport INSTANCE = new FaultSimulationReport();
     private static final String DEFAULT_REPORT_PATH = "fault_simulation_report.json";
 
-    private final Map<String, Map<String, Map<String, FaultSimulationResult>>> report = new ConcurrentHashMap<>();
+    private final Map<String, EndpointFaultResults> report = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
     private final FaultStrategyApiClient apiClient;
     private LocalDateTime executionStartTime;
@@ -32,17 +32,37 @@ public class FaultSimulationReport {
         return INSTANCE;
     }
 
+    /**
+     * Returns the internal report map for direct access.
+     */
+    public Map<String, EndpointFaultResults> getReport() {
+        return report;
+    }
 
+    /**
+     * Records a contract fault result (field-level mutation like null_field, missing_field).
+     */
     public void recordResult(String endpoint, String field, String faultType, TestLevelSimulationResults result) {
         if (endpoint == null || field == null || faultType == null || result == null) {
-            System.err.println("[METATEST-WARN] Attempted to record a result with null data. Skipping.");
+            System.err.println("[METATEST-WARN] Attempted to record a contract fault result with null data. Skipping.");
             return;
         }
 
-        report.computeIfAbsent(endpoint, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(field, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(faultType, k -> new FaultSimulationResult())
-                .addTestResult(result);
+        report.computeIfAbsent(endpoint, k -> new EndpointFaultResults())
+                .recordContractFault(faultType, field, result);
+    }
+
+    /**
+     * Records a relation fault result (business rule violation).
+     */
+    public void recordRelationResult(String endpoint, String relationName, TestLevelSimulationResults result) {
+        if (endpoint == null || relationName == null || result == null) {
+            System.err.println("[METATEST-WARN] Attempted to record a relation fault result with null data. Skipping.");
+            return;
+        }
+
+        report.computeIfAbsent(endpoint, k -> new EndpointFaultResults())
+                .recordRelationFault(relationName, result);
     }
 
     public void sendResultsToAPI() {
@@ -77,23 +97,38 @@ public class FaultSimulationReport {
     
     private SubmitSimulationResultsRequest convertToApiRequest() {
         SubmitSimulationResultsRequest request = new SubmitSimulationResultsRequest();
-        
+
         request.setTestSuiteName(extractTestSuiteName());
         request.setStrategyId(getStrategyIdFromAPI()); // Get the strategy ID that was used
         request.setExecutionStartTime(executionStartTime);
         request.setExecutionEndTime(LocalDateTime.now());
         request.setAgentVersion("1.0.0-dev");
-        
+
         Map<String, SubmitSimulationResultsRequest.EndpointResults> convertedResults = new HashMap<>();
 
-        for (Map.Entry<String, Map<String, Map<String, FaultSimulationResult>>> endpointEntry : report.entrySet()) {
+        for (Map.Entry<String, EndpointFaultResults> endpointEntry : report.entrySet()) {
             String endpoint = endpointEntry.getKey();
-            Map<String, Map<String, FaultSimulationResult>> fieldsData = endpointEntry.getValue();
+            EndpointFaultResults endpointFaultResults = endpointEntry.getValue();
 
             SubmitSimulationResultsRequest.EndpointResults endpointResults = new SubmitSimulationResultsRequest.EndpointResults();
             Map<String, SubmitSimulationResultsRequest.FieldResults> fieldResultsMap = new HashMap<>();
 
-            for (Map.Entry<String, Map<String, FaultSimulationResult>> fieldEntry : fieldsData.entrySet()) {
+            // Process contract faults: faultType -> field -> result
+            Map<String, Map<String, FaultSimulationResult>> contractFaults = endpointFaultResults.getContractFaults();
+
+            // Invert the structure: we need field -> faultType -> result for the API
+            Map<String, Map<String, FaultSimulationResult>> fieldToFaultType = new HashMap<>();
+            for (Map.Entry<String, Map<String, FaultSimulationResult>> faultTypeEntry : contractFaults.entrySet()) {
+                String faultType = faultTypeEntry.getKey();
+                for (Map.Entry<String, FaultSimulationResult> fieldEntry : faultTypeEntry.getValue().entrySet()) {
+                    String fieldName = fieldEntry.getKey();
+                    fieldToFaultType
+                            .computeIfAbsent(fieldName, k -> new HashMap<>())
+                            .put(faultType, fieldEntry.getValue());
+                }
+            }
+
+            for (Map.Entry<String, Map<String, FaultSimulationResult>> fieldEntry : fieldToFaultType.entrySet()) {
                 String fieldName = fieldEntry.getKey();
                 Map<String, FaultSimulationResult> faultTypesData = fieldEntry.getValue();
 
@@ -103,8 +138,8 @@ public class FaultSimulationReport {
                     String faultType = faultTypeEntry.getKey();
                     FaultSimulationResult faultSimResult = faultTypeEntry.getValue();
 
-                    SubmitSimulationResultsRequest.FaultTypeResult faultTypeResult = convertFaultTypeResult(faultSimResult.getDetails());
-                    
+                    SubmitSimulationResultsRequest.FaultTypeResult faultTypeResult = convertFaultTypeResult(faultSimResult.getCaughtBy());
+
                     switch (faultType) {
                         case "null_field":
                             fieldResults.setNullField(faultTypeResult);
@@ -123,19 +158,19 @@ public class FaultSimulationReport {
                             break;
                     }
                 }
-                
+
                 fieldResultsMap.put(fieldName, fieldResults);
             }
-            
+
             endpointResults.setFields(fieldResultsMap);
             convertedResults.put(endpoint, endpointResults);
         }
-        
+
         request.setResults(convertedResults);
-        
+
         SubmitSimulationResultsRequest.SimulationSummary summary = calculateSummary(convertedResults);
         request.setSummary(summary);
-        
+
         return request;
     }
     
@@ -237,14 +272,22 @@ public class FaultSimulationReport {
     }
     
     private String extractTestSuiteName() {
-        for (Map<String, Map<String, FaultSimulationResult>> endpointData : report.values()) {
-            for (Map<String, FaultSimulationResult> fieldData : endpointData.values()) {
+        for (EndpointFaultResults endpointData : report.values()) {
+            // Check contract faults
+            for (Map<String, FaultSimulationResult> fieldData : endpointData.getContractFaults().values()) {
                 for (FaultSimulationResult faultResult : fieldData.values()) {
-                    if (!faultResult.isEmpty()) {
-                        String fullTestName = faultResult.getDetails().get(0).getTest();
+                    if (!faultResult.isEmpty() && !faultResult.getTestedBy().isEmpty()) {
+                        String fullTestName = faultResult.getTestedBy().get(0);
                         // Extract class name from method name (e.g., "testCreatePayment" -> "PaymentTest")
                         return fullTestName.replaceAll("test.*", "") + "Test";
                     }
+                }
+            }
+            // Check relation faults
+            for (FaultSimulationResult faultResult : endpointData.getRelationFaults().values()) {
+                if (!faultResult.isEmpty() && !faultResult.getTestedBy().isEmpty()) {
+                    String fullTestName = faultResult.getTestedBy().get(0);
+                    return fullTestName.replaceAll("test.*", "") + "Test";
                 }
             }
         }
