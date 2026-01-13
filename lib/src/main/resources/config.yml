@@ -13,7 +13,7 @@ endpoints:
 
   /api/v1/orders/{id}:
     GET:
-      relations:
+      invariants:
         # Order status determines filled_at presence
         - name: filled_order_has_filled_at
           if:
@@ -79,7 +79,7 @@ endpoints:
 
   /api/v1/orders:
     GET:
-      relations:
+      invariants:
         # All orders in list must have valid status
         - name: all_orders_valid_status
           field: $[*].status
@@ -91,7 +91,7 @@ endpoints:
           greater_than: 0
 
     POST:
-      relations:
+      invariants:
         # Created order should be PENDING or FILLED or REJECTED
         - name: new_order_valid_status
           field: status
@@ -103,7 +103,7 @@ endpoints:
 
   /api/v1/accounts/{id}:
     GET:
-      relations:
+      invariants:
         # Cash balance must be non-negative
         - name: non_negative_cash
           field: cash_balance
@@ -136,7 +136,7 @@ endpoints:
 
   /api/v1/accounts/{id}/performance:
     GET:
-      relations:
+      invariants:
         # All counts must be non-negative
         - name: non_negative_positions_count
           field: positions_count
@@ -176,7 +176,7 @@ endpoints:
 
   /api/v1/accounts/{id}/deposit:
     POST:
-      relations:
+      invariants:
         # After deposit, cash should be positive
         - name: positive_cash_after_deposit
           field: cash_balance
@@ -184,7 +184,7 @@ endpoints:
 
   /api/v1/accounts/{id}/withdraw:
     POST:
-      relations:
+      invariants:
         # After withdrawal, cash should be non-negative
         - name: non_negative_cash_after_withdraw
           field: cash_balance
@@ -196,7 +196,7 @@ endpoints:
 
   /api/v1/positions:
     GET:
-      relations:
+      invariants:
         # All positions must have positive quantity
         - name: all_positions_positive_qty
           field: $[*].quantity
@@ -214,7 +214,7 @@ endpoints:
 
   /api/v1/positions/{id}:
     GET:
-      relations:
+      invariants:
         # All positions for account must have matching account_id
         # (This tests data consistency)
         - name: all_positions_correct_account
@@ -235,7 +235,7 @@ endpoints:
 
   /api/v1/trades:
     GET:
-      relations:
+      invariants:
         # All trades must have valid trade type
         - name: all_trades_valid_type
           field: $[*].trade_type
@@ -258,7 +258,7 @@ endpoints:
 
   /api/v1/trades/{id}:
     GET:
-      relations:
+      invariants:
         # Same as above for account-specific trades
         - name: account_trades_valid_type
           field: $[*].trade_type
@@ -274,7 +274,7 @@ endpoints:
 
   /api/v1/stocks:
     GET:
-      relations:
+      invariants:
         # All stocks must have positive price
         - name: all_stocks_positive_price
           field: $[*].current_price
@@ -287,7 +287,7 @@ endpoints:
 
   /api/v1/stocks/{id}:
     GET:
-      relations:
+      invariants:
         # Price must be positive
         - name: stock_positive_price
           field: current_price
@@ -299,7 +299,7 @@ endpoints:
           is_not_empty: true
 
     PUT:
-      relations:
+      invariants:
         # Updated price must be positive
         - name: updated_price_positive
           field: current_price
@@ -311,7 +311,7 @@ endpoints:
 
   /api/v1/auth/login:
     POST:
-      relations:
+      invariants:
         # Token must not be empty
         - name: token_present
           field: access_token
@@ -324,7 +324,7 @@ endpoints:
 
   /api/v1/auth/register:
     POST:
-      relations:
+      invariants:
         # User must be active after registration
         - name: new_user_active
           field: is_active
@@ -342,7 +342,7 @@ endpoints:
 
   /api/v1/auth/me:
     GET:
-      relations:
+      invariants:
         # Authenticated user must be active
         - name: current_user_active
           field: is_active

@@ -6,18 +6,18 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * Configuration for a relation rule that defines constraints on response fields.
- * Relations can be unconditional (always checked) or conditional (if/then structure).
+ * Configuration for an invariant rule that defines constraints on response fields.
+ * Invariants can be unconditional (always checked) or conditional (if/then structure).
  *
  * Examples:
  * - Unconditional: { name: "positive_quantity", field: "quantity", greater_than: 0 }
  * - Conditional: { name: "filled_order_has_timestamp", if: { field: "status", equals: "FILLED" }, then: { field: "filled_at", is_not_null: true } }
  */
 @Data
-public class RelationConfig {
+public class InvariantConfig {
 
     /**
-     * Unique name for this relation rule (used in reports)
+     * Unique name for this invariant rule (used in reports)
      */
     private String name;
 
@@ -122,14 +122,14 @@ public class RelationConfig {
     private String quantifier;
 
     /**
-     * Check if this relation has an if/then conditional structure
+     * Check if this invariant has an if/then conditional structure
      */
     public boolean isConditional() {
         return ifCondition != null;
     }
 
     /**
-     * Check if this relation is an unconditional field constraint
+     * Check if this invariant is an unconditional field constraint
      */
     public boolean isUnconditional() {
         return ifCondition == null && field != null;
@@ -142,7 +142,7 @@ public class RelationConfig {
         if (thenCondition != null) {
             return thenCondition;
         }
-        // For unconditional rules, create a condition from this relation's properties
+        // For unconditional rules, create a condition from this invariant's properties
         ConditionConfig condition = new ConditionConfig();
         condition.setField(this.field);
         condition.setEquals(this.equals);

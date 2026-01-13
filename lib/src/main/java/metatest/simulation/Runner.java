@@ -11,7 +11,7 @@ import metatest.injection.EmptyListStrategy;
 import metatest.injection.EmptyStringStrategy;
 import metatest.injection.MissingFieldStrategy;
 import metatest.injection.NullFieldStrategy;
-import metatest.relation.RelationSimulator;
+import metatest.invariant.InvariantSimulator;
 import metatest.simulation.FaultSimulationReport;
 import metatest.simulation.TestLevelSimulationResults;
 import metatest.core.normalizer.EndpointPatternNormalizer;
@@ -121,9 +121,9 @@ public final class Runner {
                 }
             }
 
-            // === Relation Violations (business rule mutations) ===
+            // === Invariant Violations (business rule mutations) ===
             String httpMethod = originalRequest.getMethod();
-            RelationSimulator.simulateRelationViolations(
+            InvariantSimulator.simulateInvariantViolations(
                     joinPoint, context, testName, endpointPattern, httpMethod,
                     originalResponse, requestIndex);
         }

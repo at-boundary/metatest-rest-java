@@ -20,11 +20,11 @@ public class SimulatorConfig {
     public Settings settings;
 
     /**
-     * Endpoint-specific relation rules.
-     * Structure: Map<endpoint_path, Map<http_method, MethodRelationsConfig>>
-     * Example: endpoints."/api/v1/orders/{id}".GET.relations
+     * Endpoint-specific invariant rules.
+     * Structure: Map<endpoint_path, Map<http_method, MethodInvariantsConfig>>
+     * Example: endpoints."/api/v1/orders/{id}".GET.invariants
      */
-    public Map<String, Map<String, MethodRelationsConfig>> endpoints = new HashMap<>();
+    public Map<String, Map<String, MethodInvariantsConfig>> endpoints = new HashMap<>();
 
     /**
      * Legacy fault injection settings
@@ -134,7 +134,7 @@ public class SimulatorConfig {
     public static class Mutations {
         public boolean enabled;
         public boolean business_logic_mutations;
-        public boolean data_relationship_mutations;
+        public boolean data_invariantship_mutations;
         public boolean authorization_mutations;
     }
 
@@ -155,7 +155,7 @@ public class SimulatorConfig {
         public FieldValues field_values;
         public Performance performance;
         public BusinessLogicFaults business_logic;
-        public DataRelationships data_relationships;
+        public DataRelationships data_invariantships;
     }
 
     @Data
@@ -216,7 +216,7 @@ public class SimulatorConfig {
     }
 
     /**
-     * Global settings for relation evaluation
+     * Global settings for invariant evaluation
      */
     @Data
     public static class Settings {
@@ -502,29 +502,29 @@ public class SimulatorConfig {
     }
 
     /**
-     * Gets relation rules for a specific endpoint and HTTP method.
+     * Gets invariant rules for a specific endpoint and HTTP method.
      *
      * @param endpointPath The endpoint path (e.g., "/api/v1/orders/{order_id}")
      * @param httpMethod The HTTP method (e.g., "GET", "POST")
-     * @return List of relation configs, empty list if none configured
+     * @return List of invariant configs, empty list if none configured
      */
-    public static List<RelationConfig> getRelationsForEndpoint(String endpointPath, String httpMethod) {
+    public static List<InvariantConfig> getInvariantsForEndpoint(String endpointPath, String httpMethod) {
         SimulatorConfig config = configSource.getConfig();
         if (config == null || config.endpoints == null) {
             return new ArrayList<>();
         }
 
-        Map<String, MethodRelationsConfig> methodConfigs = config.endpoints.get(endpointPath);
+        Map<String, MethodInvariantsConfig> methodConfigs = config.endpoints.get(endpointPath);
         if (methodConfigs == null) {
             return new ArrayList<>();
         }
 
-        MethodRelationsConfig methodConfig = methodConfigs.get(httpMethod.toUpperCase());
-        if (methodConfig == null || methodConfig.getRelations() == null) {
+        MethodInvariantsConfig methodConfig = methodConfigs.get(httpMethod.toUpperCase());
+        if (methodConfig == null || methodConfig.getInvariants() == null) {
             return new ArrayList<>();
         }
 
-        return methodConfig.getRelations();
+        return methodConfig.getInvariants();
     }
 
     /**
@@ -541,22 +541,22 @@ public class SimulatorConfig {
     }
 
     /**
-     * Checks if there are any relation rules configured for the given endpoint and method.
+     * Checks if there are any invariant rules configured for the given endpoint and method.
      *
      * @param endpointPath The endpoint path
      * @param httpMethod The HTTP method
-     * @return true if relations are configured
+     * @return true if invariants are configured
      */
-    public static boolean hasRelations(String endpointPath, String httpMethod) {
-        return !getRelationsForEndpoint(endpointPath, httpMethod).isEmpty();
+    public static boolean hasInvariants(String endpointPath, String httpMethod) {
+        return !getInvariantsForEndpoint(endpointPath, httpMethod).isEmpty();
     }
 
     /**
-     * Gets all configured endpoints with relations.
+     * Gets all configured endpoints with invariants.
      *
      * @return Map of endpoint paths to their method configurations
      */
-    public static Map<String, Map<String, MethodRelationsConfig>> getAllEndpointRelations() {
+    public static Map<String, Map<String, MethodInvariantsConfig>> getAllEndpointInvariants() {
         SimulatorConfig config = configSource.getConfig();
         if (config == null || config.endpoints == null) {
             return new HashMap<>();

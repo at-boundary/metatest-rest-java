@@ -42,7 +42,7 @@ public class LocalConfigurationSource implements ConfigurationSource {
         if (config.exclusions != null && config.exclusions.endpoints != null) {
             return config.exclusions.endpoints;
         }
-        // Note: config.endpoints is now a Map for relations, not the legacy exclusion list
+        // Note: config.endpoints is now a Map for invariants, not the legacy exclusion list
         return null;
     }
 

@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Represents all fault simulation results for a single endpoint.
- * Separates results into contract faults (field-level mutations) and relation faults (business rule violations).
+ * Separates results into contract faults (field-level mutations) and invariant faults (business rule violations).
  */
 @Data
 public class EndpointFaultResults {
@@ -21,15 +21,15 @@ public class EndpointFaultResults {
     private Map<String, Map<String, FaultSimulationResult>> contractFaults;
 
     /**
-     * Relation faults grouped by relation name.
+     * Invariant faults grouped by invariant name.
      * Structure: { "positive_quantity": {...}, "filled_order_has_filled_at": {...} }
      */
-    @JsonProperty("relation_faults")
-    private Map<String, FaultSimulationResult> relationFaults;
+    @JsonProperty("invariant_faults")
+    private Map<String, FaultSimulationResult> invariantFaults;
 
     public EndpointFaultResults() {
         this.contractFaults = new ConcurrentHashMap<>();
-        this.relationFaults = new ConcurrentHashMap<>();
+        this.invariantFaults = new ConcurrentHashMap<>();
     }
 
     /**
@@ -43,11 +43,11 @@ public class EndpointFaultResults {
     }
 
     /**
-     * Records a relation fault result (business rule violation).
+     * Records a invariant fault result (business rule violation).
      */
-    public void recordRelationFault(String relationName, TestLevelSimulationResults result) {
-        relationFaults
-                .computeIfAbsent(relationName, k -> new FaultSimulationResult())
+    public void recordInvariantFault(String invariantName, TestLevelSimulationResults result) {
+        invariantFaults
+                .computeIfAbsent(invariantName, k -> new FaultSimulationResult())
                 .addTestResult(result);
     }
 
@@ -78,18 +78,18 @@ public class EndpointFaultResults {
     }
 
     /**
-     * Returns the total number of relation faults tested.
+     * Returns the total number of invariant faults tested.
      */
-    public int getRelationFaultCount() {
-        return relationFaults.size();
+    public int getInvariantFaultCount() {
+        return invariantFaults.size();
     }
 
     /**
-     * Returns the number of relation faults that were caught.
+     * Returns the number of invariant faults that were caught.
      */
-    public int getRelationFaultsCaught() {
+    public int getInvariantFaultsCaught() {
         int count = 0;
-        for (FaultSimulationResult result : relationFaults.values()) {
+        for (FaultSimulationResult result : invariantFaults.values()) {
             if (result.isCaughtByAnyTest()) {
                 count++;
             }

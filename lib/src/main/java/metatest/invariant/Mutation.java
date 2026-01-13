@@ -1,9 +1,9 @@
-package metatest.relation;
+package metatest.invariant;
 
 import lombok.Data;
 
 /**
- * Represents a mutation to apply to a response field to violate a relation.
+ * Represents a mutation to apply to a response field to violate an invariant.
  * Used for fault simulation testing.
  */
 @Data
@@ -26,9 +26,9 @@ public class Mutation {
     }
 
     /**
-     * The relation this mutation is designed to violate
+     * The invariant this mutation is designed to violate
      */
-    private String relationName;
+    private String invariantName;
 
     /**
      * The field path to mutate (dot notation)
@@ -58,9 +58,9 @@ public class Mutation {
     /**
      * Create a SET_NULL mutation
      */
-    public static Mutation setNull(String relationName, String field) {
+    public static Mutation setNull(String invariantName, String field) {
         Mutation m = new Mutation();
-        m.setRelationName(relationName);
+        m.setInvariantName(invariantName);
         m.setField(field);
         m.setType(MutationType.SET_NULL);
         m.setValue(null);
@@ -71,9 +71,9 @@ public class Mutation {
     /**
      * Create a SET_VALUE mutation
      */
-    public static Mutation setValue(String relationName, String field, Object value) {
+    public static Mutation setValue(String invariantName, String field, Object value) {
         Mutation m = new Mutation();
-        m.setRelationName(relationName);
+        m.setInvariantName(invariantName);
         m.setField(field);
         m.setType(MutationType.SET_VALUE);
         m.setValue(value);
@@ -84,8 +84,8 @@ public class Mutation {
     /**
      * Create a SET_VALUE mutation with original value tracking
      */
-    public static Mutation setValue(String relationName, String field, Object value, Object original) {
-        Mutation m = setValue(relationName, field, value);
+    public static Mutation setValue(String invariantName, String field, Object value, Object original) {
+        Mutation m = setValue(invariantName, field, value);
         m.setOriginalValue(original);
         return m;
     }
@@ -93,9 +93,9 @@ public class Mutation {
     /**
      * Create a REMOVE_FIELD mutation
      */
-    public static Mutation removeField(String relationName, String field) {
+    public static Mutation removeField(String invariantName, String field) {
         Mutation m = new Mutation();
-        m.setRelationName(relationName);
+        m.setInvariantName(invariantName);
         m.setField(field);
         m.setType(MutationType.REMOVE_FIELD);
         m.setDescription("Remove field " + field);
@@ -105,9 +105,9 @@ public class Mutation {
     /**
      * Create a SET_EMPTY_STRING mutation
      */
-    public static Mutation setEmptyString(String relationName, String field) {
+    public static Mutation setEmptyString(String invariantName, String field) {
         Mutation m = new Mutation();
-        m.setRelationName(relationName);
+        m.setInvariantName(invariantName);
         m.setField(field);
         m.setType(MutationType.SET_EMPTY_STRING);
         m.setValue("");
@@ -118,9 +118,9 @@ public class Mutation {
     /**
      * Create a SET_EMPTY_LIST mutation
      */
-    public static Mutation setEmptyList(String relationName, String field) {
+    public static Mutation setEmptyList(String invariantName, String field) {
         Mutation m = new Mutation();
-        m.setRelationName(relationName);
+        m.setInvariantName(invariantName);
         m.setField(field);
         m.setType(MutationType.SET_EMPTY_LIST);
         m.setValue(java.util.Collections.emptyList());
@@ -131,7 +131,7 @@ public class Mutation {
     @Override
     public String toString() {
         return "Mutation{" +
-                "relation='" + relationName + '\'' +
+                "invariant='" + invariantName + '\'' +
                 ", field='" + field + '\'' +
                 ", type=" + type +
                 ", value=" + value +

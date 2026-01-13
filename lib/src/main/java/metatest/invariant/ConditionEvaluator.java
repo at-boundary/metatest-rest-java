@@ -1,7 +1,7 @@
-package metatest.relation;
+package metatest.invariant;
 
 import metatest.core.config.ConditionConfig;
-import metatest.core.config.RelationConfig;
+import metatest.core.config.InvariantConfig;
 import metatest.core.config.SimulatorConfig;
 
 import java.math.BigDecimal;
@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Evaluates relation conditions against response data.
- * Determines if a response satisfies the configured relation rules.
+ * Evaluates invariant conditions against response data.
+ * Determines if a response satisfies the configured invariant rules.
  */
 public class ConditionEvaluator {
 
     /**
-     * Result of evaluating a relation condition.
+     * Result of evaluating an invariant condition.
      */
     public static class EvaluationResult {
         private final boolean satisfied;
@@ -64,30 +64,30 @@ public class ConditionEvaluator {
     }
 
     /**
-     * Evaluates a relation against response data.
+     * Evaluates an invariant against response data.
      *
-     * @param relation The relation configuration to evaluate
+     * @param invariant The invariant configuration to evaluate
      * @param responseMap The response data as a map
-     * @return EvaluationResult indicating if the relation is satisfied
+     * @return EvaluationResult indicating if the invariant is satisfied
      */
-    public EvaluationResult evaluate(RelationConfig relation, Map<String, Object> responseMap) {
-        if (relation == null) {
-            return EvaluationResult.skipped("null relation");
+    public EvaluationResult evaluate(InvariantConfig invariant, Map<String, Object> responseMap) {
+        if (invariant == null) {
+            return EvaluationResult.skipped("null invariant");
         }
 
-        // For conditional relations (if/then), first check the precondition
-        if (relation.isConditional()) {
-            EvaluationResult preconditionResult = evaluateCondition(relation.getIfCondition(), responseMap);
+        // For conditional invariants (if/then), first check the precondition
+        if (invariant.isConditional()) {
+            EvaluationResult preconditionResult = evaluateCondition(invariant.getIfCondition(), responseMap);
             if (!preconditionResult.isSatisfied()) {
-                // Precondition not met, skip the assertion (relation doesn't apply)
+                // Precondition not met, skip the assertion (invariant doesn't apply)
                 return EvaluationResult.skipped("precondition not met");
             }
             // Precondition met, evaluate the then clause
-            return evaluateCondition(relation.getThenCondition(), responseMap);
+            return evaluateCondition(invariant.getThenCondition(), responseMap);
         }
 
-        // For unconditional relations, evaluate directly
-        return evaluateCondition(relation.getEffectiveCondition(), responseMap);
+        // For unconditional invariants, evaluate directly
+        return evaluateCondition(invariant.getEffectiveCondition(), responseMap);
     }
 
     /**

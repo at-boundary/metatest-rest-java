@@ -53,16 +53,16 @@ public class FaultSimulationReport {
     }
 
     /**
-     * Records a relation fault result (business rule violation).
+     * Records a invariant fault result (business rule violation).
      */
-    public void recordRelationResult(String endpoint, String relationName, TestLevelSimulationResults result) {
-        if (endpoint == null || relationName == null || result == null) {
-            System.err.println("[METATEST-WARN] Attempted to record a relation fault result with null data. Skipping.");
+    public void recordInvariantResult(String endpoint, String invariantName, TestLevelSimulationResults result) {
+        if (endpoint == null || invariantName == null || result == null) {
+            System.err.println("[METATEST-WARN] Attempted to record a invariant fault result with null data. Skipping.");
             return;
         }
 
         report.computeIfAbsent(endpoint, k -> new EndpointFaultResults())
-                .recordRelationFault(relationName, result);
+                .recordInvariantFault(invariantName, result);
     }
 
     public void sendResultsToAPI() {
@@ -283,8 +283,8 @@ public class FaultSimulationReport {
                     }
                 }
             }
-            // Check relation faults
-            for (FaultSimulationResult faultResult : endpointData.getRelationFaults().values()) {
+            // Check invariant faults
+            for (FaultSimulationResult faultResult : endpointData.getInvariantFaults().values()) {
                 if (!faultResult.isEmpty() && !faultResult.getTestedBy().isEmpty()) {
                     String fullTestName = faultResult.getTestedBy().get(0);
                     return fullTestName.replaceAll("test.*", "") + "Test";

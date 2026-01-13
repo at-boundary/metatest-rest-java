@@ -114,18 +114,18 @@ public class HtmlReportGenerator {
         // Calculate metrics
         int totalEndpoints = faultSimulation != null ? faultSimulation.size() : 0;
         int[] faultStats = calculateFaultStats(faultSimulation);
-        // [total, detected, escaped, relationTotal, relationDetected, relationEscaped]
+        // [total, detected, escaped, invariantTotal, invariantDetected, invariantEscaped]
         int totalFaults = faultStats[0];
         int detectedFaults = faultStats[1];
         int escapedFaults = faultStats[2];
-        int relationTotal = faultStats[3];
-        int relationDetected = faultStats[4];
-        int relationEscaped = faultStats[5];
+        int invariantTotal = faultStats[3];
+        int invariantDetected = faultStats[4];
+        int invariantEscaped = faultStats[5];
 
         // Combined stats for overall detection rate
-        int allTotal = totalFaults + relationTotal;
-        int allDetected = detectedFaults + relationDetected;
-        int allEscaped = escapedFaults + relationEscaped;
+        int allTotal = totalFaults + invariantTotal;
+        int allDetected = detectedFaults + invariantDetected;
+        int allEscaped = escapedFaults + invariantEscaped;
         double detectionRate = allTotal > 0 ? (allDetected * 100.0 / allTotal) : 0;
 
         int untestedEndpoints = 0;
@@ -160,17 +160,17 @@ public class HtmlReportGenerator {
         cards.append("      <div class=\"card-subtitle\">" + detectedFaults + "/" + totalFaults + " detected (" + escapedFaults + " escaped)</div>\n");
         cards.append("    </div>\n");
 
-        // Card 3: Relation Violations
-        if (relationTotal > 0) {
-            double relationRate = (relationDetected * 100.0 / relationTotal);
-            String relationClass = relationRate >= 90 ? "good" : relationRate >= 70 ? "warning" : "bad";
+        // Card 3: Invariant Violations
+        if (invariantTotal > 0) {
+            double invariantRate = (invariantDetected * 100.0 / invariantTotal);
+            String invariantClass = invariantRate >= 90 ? "good" : invariantRate >= 70 ? "warning" : "bad";
             cards.append("    <div class=\"card\">\n");
-            cards.append("      <div class=\"card-title\">Relation Violations</div>\n");
-            cards.append("      <div class=\"card-value " + relationClass + "\">" + String.format("%.0f%%", relationRate) + "</div>\n");
-            cards.append("      <div class=\"card-subtitle\">" + relationDetected + "/" + relationTotal + " detected (" + relationEscaped + " escaped)</div>\n");
+            cards.append("      <div class=\"card-title\">Invariant Violations</div>\n");
+            cards.append("      <div class=\"card-value " + invariantClass + "\">" + String.format("%.0f%%", invariantRate) + "</div>\n");
+            cards.append("      <div class=\"card-subtitle\">" + invariantDetected + "/" + invariantTotal + " detected (" + invariantEscaped + " escaped)</div>\n");
             cards.append("    </div>\n");
         } else {
-            // Card 3: Endpoint Coverage (when no relations)
+            // Card 3: Endpoint Coverage (when no invariants)
             String covClass = coveragePercentage >= 80 ? "good" : coveragePercentage >= 50 ? "warning" : "bad";
             cards.append("    <div class=\"card\">\n");
             cards.append("      <div class=\"card-title\">Endpoint Coverage</div>\n");
@@ -192,13 +192,13 @@ public class HtmlReportGenerator {
     }
 
     private static int[] calculateFaultStats(JsonNode faultSimulation) {
-        // Returns: [total, detected, escaped, relationTotal, relationDetected, relationEscaped]
+        // Returns: [total, detected, escaped, invariantTotal, invariantDetected, invariantEscaped]
         int total = 0;
         int detected = 0;
         int escaped = 0;
-        int relationTotal = 0;
-        int relationDetected = 0;
-        int relationEscaped = 0;
+        int invariantTotal = 0;
+        int invariantDetected = 0;
+        int invariantEscaped = 0;
 
         if (faultSimulation == null || faultSimulation.isNull()) {
             return new int[]{0, 0, 0, 0, 0, 0};
@@ -234,27 +234,27 @@ public class HtmlReportGenerator {
                 }
             }
 
-            // Process relation_faults: relationName -> result
-            if (endpointData.has("relation_faults")) {
-                JsonNode relationFaults = endpointData.get("relation_faults");
-                Iterator<Map.Entry<String, JsonNode>> relationIter = relationFaults.fields();
-                while (relationIter.hasNext()) {
-                    Map.Entry<String, JsonNode> relationEntry = relationIter.next();
-                    JsonNode faultData = relationEntry.getValue();
+            // Process invariant_faults: invariantName -> result
+            if (endpointData.has("invariant_faults")) {
+                JsonNode invariantFaults = endpointData.get("invariant_faults");
+                Iterator<Map.Entry<String, JsonNode>> invariantIter = invariantFaults.fields();
+                while (invariantIter.hasNext()) {
+                    Map.Entry<String, JsonNode> invariantEntry = invariantIter.next();
+                    JsonNode faultData = invariantEntry.getValue();
 
                     boolean caughtByAny = faultData.has("caught_by_any_test") &&
                                         faultData.get("caught_by_any_test").asBoolean();
-                    relationTotal++;
+                    invariantTotal++;
                     if (caughtByAny) {
-                        relationDetected++;
+                        invariantDetected++;
                     } else {
-                        relationEscaped++;
+                        invariantEscaped++;
                     }
                 }
             }
         }
 
-        return new int[]{total, detected, escaped, relationTotal, relationDetected, relationEscaped};
+        return new int[]{total, detected, escaped, invariantTotal, invariantDetected, invariantEscaped};
     }
 
     private static String buildFaultSimulationSection(JsonNode faultSimulation) {
@@ -275,7 +275,7 @@ public class HtmlReportGenerator {
 
             // Calculate summary for this endpoint
             int contractFaults = 0, contractDetected = 0, contractEscaped = 0;
-            int relationFaults = 0, relationDetected = 0, relationEscaped = 0;
+            int invariantFaults = 0, invariantDetected = 0, invariantEscaped = 0;
 
             // Count contract faults
             if (endpointData.has("contract_faults")) {
@@ -297,32 +297,32 @@ public class HtmlReportGenerator {
                 }
             }
 
-            // Count relation faults
-            if (endpointData.has("relation_faults")) {
-                JsonNode relationFaultsNode = endpointData.get("relation_faults");
-                Iterator<Map.Entry<String, JsonNode>> relationIter = relationFaultsNode.fields();
-                while (relationIter.hasNext()) {
-                    Map.Entry<String, JsonNode> relationEntry = relationIter.next();
-                    JsonNode faultData = relationEntry.getValue();
+            // Count invariant faults
+            if (endpointData.has("invariant_faults")) {
+                JsonNode invariantFaultsNode = endpointData.get("invariant_faults");
+                Iterator<Map.Entry<String, JsonNode>> invariantIter = invariantFaultsNode.fields();
+                while (invariantIter.hasNext()) {
+                    Map.Entry<String, JsonNode> invariantEntry = invariantIter.next();
+                    JsonNode faultData = invariantEntry.getValue();
                     boolean caught = faultData.has("caught_by_any_test") &&
                                     faultData.get("caught_by_any_test").asBoolean();
-                    relationFaults++;
-                    if (caught) relationDetected++; else relationEscaped++;
+                    invariantFaults++;
+                    if (caught) invariantDetected++; else invariantEscaped++;
                 }
             }
 
-            int totalFaults = contractFaults + relationFaults;
-            int detectedFaults = contractDetected + relationDetected;
-            int escapedFaults = contractEscaped + relationEscaped;
+            int totalFaults = contractFaults + invariantFaults;
+            int detectedFaults = contractDetected + invariantDetected;
+            int escapedFaults = contractEscaped + invariantEscaped;
 
             section.append("    <div class=\"endpoint-card\">\n");
             section.append("      <div class=\"endpoint-header collapsible\" onclick=\"toggleEndpoint(" + endpointIndex + ")\">\n");
             section.append("        <div class=\"endpoint-title-section\">\n");
             section.append("          <span class=\"endpoint-path\">" + escapeHtml(endpointPath) + "</span>\n");
             section.append("          <div class=\"endpoint-summary\">\n");
-            if (relationFaults > 0) {
+            if (invariantFaults > 0) {
                 section.append("            <span class=\"summary-badge detected\">" + contractDetected + "/" + contractFaults + " contract</span>\n");
-                section.append("            <span class=\"summary-badge relation\">" + relationDetected + "/" + relationFaults + " relation</span>\n");
+                section.append("            <span class=\"summary-badge invariant\">" + invariantDetected + "/" + invariantFaults + " invariant</span>\n");
             } else {
                 section.append("            <span class=\"summary-badge detected\">" + detectedFaults + " detected</span>\n");
             }
@@ -415,14 +415,14 @@ public class HtmlReportGenerator {
                 }
             }
 
-            // Render relation faults: relationName -> result
-            if (endpointData.has("relation_faults")) {
-                JsonNode relationFaultsNode = endpointData.get("relation_faults");
-                Iterator<Map.Entry<String, JsonNode>> relationIter = relationFaultsNode.fields();
-                while (relationIter.hasNext()) {
-                    Map.Entry<String, JsonNode> relationEntry = relationIter.next();
-                    String relationName = relationEntry.getKey();
-                    JsonNode faultData = relationEntry.getValue();
+            // Render invariant faults: invariantName -> result
+            if (endpointData.has("invariant_faults")) {
+                JsonNode invariantFaultsNode = endpointData.get("invariant_faults");
+                Iterator<Map.Entry<String, JsonNode>> invariantIter = invariantFaultsNode.fields();
+                while (invariantIter.hasNext()) {
+                    Map.Entry<String, JsonNode> invariantEntry = invariantIter.next();
+                    String invariantName = invariantEntry.getKey();
+                    JsonNode faultData = invariantEntry.getValue();
 
                     boolean caught = faultData.has("caught_by_any_test") &&
                                     faultData.get("caught_by_any_test").asBoolean();
@@ -434,7 +434,7 @@ public class HtmlReportGenerator {
 
                     section.append("        <div class=\"fault-row\">\n");
                     section.append("          <div class=\"fault-cell\"><code>-</code></div>\n");
-                    section.append("          <div class=\"fault-cell\"><span class=\"fault-badge relation-badge\">" + escapeHtml(relationName) + "</span></div>\n");
+                    section.append("          <div class=\"fault-cell\"><span class=\"fault-badge invariant-badge\">" + escapeHtml(invariantName) + "</span></div>\n");
                     section.append("          <div class=\"fault-cell\">");
                     section.append("<span class=\"status-badge " + (caught ? "detected" : "escaped") + "\">");
                     section.append(caught ? "✓ Detected" : "✗ Escaped");
@@ -443,7 +443,7 @@ public class HtmlReportGenerator {
                     section.append("<button class=\"details-btn\" onclick=\"toggleDetails(this)\">View " + testedCount + " test(s)</button>");
                     section.append("<div class=\"test-details\" style=\"display:none;\">");
 
-                    // Show all tests that tested this relation
+                    // Show all tests that tested this invariant
                     if (testedBy != null && testedBy.isArray()) {
                         for (JsonNode testName : testedBy) {
                             String test = testName.asText();
@@ -1109,13 +1109,13 @@ body {
     border: 1px solid var(--border-color);
 }
 
-.summary-badge.relation {
+.summary-badge.invariant {
     background: #e0e7ff;
     color: #3730a3;
     border: 1px solid #c7d2fe;
 }
 
-[data-theme="dark"] .summary-badge.relation {
+[data-theme="dark"] .summary-badge.invariant {
     background: #312e81;
     color: #a5b4fc;
     border: 1px solid #4338ca;
@@ -1196,14 +1196,14 @@ body {
     border: 1px solid var(--border-color);
 }
 
-.fault-badge.relation-badge {
+.fault-badge.invariant-badge {
     background: #e0e7ff;
     color: #3730a3;
     border: 1px solid #c7d2fe;
     text-transform: none;
 }
 
-[data-theme="dark"] .fault-badge.relation-badge {
+[data-theme="dark"] .fault-badge.invariant-badge {
     background: #312e81;
     color: #a5b4fc;
     border: 1px solid #4338ca;

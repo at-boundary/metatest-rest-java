@@ -1,4 +1,4 @@
-package metatest.relation;
+package metatest.invariant;
 
 import java.util.ArrayList;
 import java.util.List;

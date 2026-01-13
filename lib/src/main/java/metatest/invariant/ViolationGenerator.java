@@ -1,51 +1,51 @@
-package metatest.relation;
+package metatest.invariant;
 
 import metatest.core.config.ConditionConfig;
-import metatest.core.config.RelationConfig;
+import metatest.core.config.InvariantConfig;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Generates mutations that violate configured relation rules.
+ * Generates mutations that violate configured invariant rules.
  * Used for fault simulation to test if API tests properly validate business rules.
  */
 public class ViolationGenerator {
 
     /**
-     * Generates mutations that would violate the given relation.
+     * Generates mutations that would violate the given invariant.
      *
-     * @param relation The relation configuration to violate
+     * @param invariant The invariant configuration to violate
      * @param responseMap The current response data (for context and value references)
-     * @return List of mutations that would violate the relation
+     * @return List of mutations that would violate the invariant
      */
-    public List<Mutation> generateViolations(RelationConfig relation, Map<String, Object> responseMap) {
+    public List<Mutation> generateViolations(InvariantConfig invariant, Map<String, Object> responseMap) {
         List<Mutation> mutations = new ArrayList<>();
 
-        if (relation == null) {
+        if (invariant == null) {
             return mutations;
         }
 
-        String relationName = relation.getName() != null ? relation.getName() : "unnamed";
+        String invariantName = invariant.getName() != null ? invariant.getName() : "unnamed";
 
-        if (relation.isConditional()) {
-            // For conditional relations, generate violations for the 'then' clause
+        if (invariant.isConditional()) {
+            // For conditional invariants, generate violations for the 'then' clause
             // We also check if the precondition is met
             ConditionEvaluator evaluator = new ConditionEvaluator();
             ConditionEvaluator.EvaluationResult preconditionResult =
-                    evaluator.evaluateCondition(relation.getIfCondition(), responseMap);
+                    evaluator.evaluateCondition(invariant.getIfCondition(), responseMap);
 
             if (preconditionResult.isSatisfied()) {
                 // Precondition met, generate violations for the assertion
                 mutations.addAll(generateConditionViolations(
-                        relationName, relation.getThenCondition(), responseMap));
+                        invariantName, invariant.getThenCondition(), responseMap));
             }
-            // If precondition not met, the relation doesn't apply, no violations to generate
+            // If precondition not met, the invariant doesn't apply, no violations to generate
         } else {
-            // For unconditional relations, generate violations directly
+            // For unconditional invariants, generate violations directly
             mutations.addAll(generateConditionViolations(
-                    relationName, relation.getEffectiveCondition(), responseMap));
+                    invariantName, invariant.getEffectiveCondition(), responseMap));
         }
 
         return mutations;
@@ -54,7 +54,7 @@ public class ViolationGenerator {
     /**
      * Generates mutations that violate a specific condition.
      */
-    private List<Mutation> generateConditionViolations(String relationName,
+    private List<Mutation> generateConditionViolations(String invariantName,
                                                         ConditionConfig condition,
                                                         Map<String, Object> responseMap) {
         List<Mutation> mutations = new ArrayList<>();
@@ -74,7 +74,7 @@ public class ViolationGenerator {
 
         // is_not_null -> set to null
         if (condition.getIsNotNull() != null && condition.getIsNotNull()) {
-            mutations.add(Mutation.setNull(relationName, field));
+            mutations.add(Mutation.setNull(invariantName, field));
         }
 
         // is_null -> set to non-null value
@@ -82,39 +82,39 @@ public class ViolationGenerator {
             Object currentValue = FieldExtractor.extractValue(responseMap, field);
             // If already null, we can't generate a violation that would fail
             // Generate a non-null value
-            mutations.add(Mutation.setValue(relationName, field, "non_null_value", currentValue));
+            mutations.add(Mutation.setValue(invariantName, field, "non_null_value", currentValue));
         }
 
         // is_not_empty -> set to empty
         if (condition.getIsNotEmpty() != null && condition.getIsNotEmpty()) {
             Object currentValue = FieldExtractor.extractValue(responseMap, field);
             if (currentValue instanceof String) {
-                mutations.add(Mutation.setEmptyString(relationName, field));
+                mutations.add(Mutation.setEmptyString(invariantName, field));
             } else if (currentValue instanceof List) {
-                mutations.add(Mutation.setEmptyList(relationName, field));
+                mutations.add(Mutation.setEmptyList(invariantName, field));
             } else {
                 // Default to empty string
-                mutations.add(Mutation.setEmptyString(relationName, field));
+                mutations.add(Mutation.setEmptyString(invariantName, field));
             }
         }
 
         // is_empty -> set to non-empty value
         if (condition.getIsEmpty() != null && condition.getIsEmpty()) {
             Object currentValue = FieldExtractor.extractValue(responseMap, field);
-            mutations.add(Mutation.setValue(relationName, field, "non_empty_value", currentValue));
+            mutations.add(Mutation.setValue(invariantName, field, "non_empty_value", currentValue));
         }
 
         // equals -> set to different value
         if (condition.getEquals() != null) {
             Object expected = resolveValue(condition.getEquals(), responseMap);
             Object violatingValue = generateDifferentValue(expected);
-            mutations.add(Mutation.setValue(relationName, field, violatingValue, expected));
+            mutations.add(Mutation.setValue(invariantName, field, violatingValue, expected));
         }
 
         // not_equals -> set to the disallowed value
         if (condition.getNotEquals() != null) {
             Object disallowed = resolveValue(condition.getNotEquals(), responseMap);
-            mutations.add(Mutation.setValue(relationName, field, disallowed,
+            mutations.add(Mutation.setValue(invariantName, field, disallowed,
                     FieldExtractor.extractValue(responseMap, field)));
         }
 
@@ -124,10 +124,10 @@ public class ViolationGenerator {
             if (threshold instanceof Number) {
                 double thresholdValue = ((Number) threshold).doubleValue();
                 // Set to exactly threshold (boundary violation)
-                mutations.add(Mutation.setValue(relationName, field, thresholdValue,
+                mutations.add(Mutation.setValue(invariantName, field, thresholdValue,
                         FieldExtractor.extractValue(responseMap, field)));
                 // Set to below threshold
-                mutations.add(Mutation.setValue(relationName, field, thresholdValue - 1,
+                mutations.add(Mutation.setValue(invariantName, field, thresholdValue - 1,
                         FieldExtractor.extractValue(responseMap, field)));
             }
         }
@@ -138,7 +138,7 @@ public class ViolationGenerator {
             if (threshold instanceof Number) {
                 double thresholdValue = ((Number) threshold).doubleValue();
                 // Set to just below threshold
-                mutations.add(Mutation.setValue(relationName, field, thresholdValue - 1,
+                mutations.add(Mutation.setValue(invariantName, field, thresholdValue - 1,
                         FieldExtractor.extractValue(responseMap, field)));
             }
         }
@@ -149,10 +149,10 @@ public class ViolationGenerator {
             if (threshold instanceof Number) {
                 double thresholdValue = ((Number) threshold).doubleValue();
                 // Set to exactly threshold (boundary violation)
-                mutations.add(Mutation.setValue(relationName, field, thresholdValue,
+                mutations.add(Mutation.setValue(invariantName, field, thresholdValue,
                         FieldExtractor.extractValue(responseMap, field)));
                 // Set to above threshold
-                mutations.add(Mutation.setValue(relationName, field, thresholdValue + 1,
+                mutations.add(Mutation.setValue(invariantName, field, thresholdValue + 1,
                         FieldExtractor.extractValue(responseMap, field)));
             }
         }
@@ -163,13 +163,13 @@ public class ViolationGenerator {
             if (threshold instanceof Number) {
                 double thresholdValue = ((Number) threshold).doubleValue();
                 // Set to just above threshold
-                mutations.add(Mutation.setValue(relationName, field, thresholdValue + 1,
+                mutations.add(Mutation.setValue(invariantName, field, thresholdValue + 1,
                         FieldExtractor.extractValue(responseMap, field)));
             } else if (threshold instanceof String) {
                 // For string comparison (dates), we need to handle differently
                 String thresholdStr = (String) threshold;
                 // Generate a value that would be greater (lexicographically)
-                mutations.add(Mutation.setValue(relationName, field, thresholdStr + "Z",
+                mutations.add(Mutation.setValue(invariantName, field, thresholdStr + "Z",
                         FieldExtractor.extractValue(responseMap, field)));
             }
         }
@@ -177,7 +177,7 @@ public class ViolationGenerator {
         // in -> set to value not in list
         if (condition.getIn() != null && !condition.getIn().isEmpty()) {
             Object invalidValue = generateValueNotIn(condition.getIn());
-            mutations.add(Mutation.setValue(relationName, field, invalidValue,
+            mutations.add(Mutation.setValue(invariantName, field, invalidValue,
                     FieldExtractor.extractValue(responseMap, field)));
         }
 
@@ -185,7 +185,7 @@ public class ViolationGenerator {
         if (condition.getNotIn() != null && !condition.getNotIn().isEmpty()) {
             // Pick first disallowed value
             Object disallowedValue = condition.getNotIn().get(0);
-            mutations.add(Mutation.setValue(relationName, field, disallowedValue,
+            mutations.add(Mutation.setValue(invariantName, field, disallowedValue,
                     FieldExtractor.extractValue(responseMap, field)));
         }
 
