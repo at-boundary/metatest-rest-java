@@ -96,26 +96,38 @@ public final class Runner {
             context.setCurrentSimulationIndex(requestIndex);
 
             // === Contract Faults (field-level mutations) ===
+            boolean stopOnFirstCatch = SimulatorConfig.isStopOnFirstCatchEnabled();
             for (String field : originalResponse.getResponseAsMap().keySet()) {
                 for (FaultCollection fault : ENABLED_FAULTS) {
+                    // Skip if stop_on_first_catch is enabled and fault was already caught
+                    if (stopOnFirstCatch && REPORT.isContractFaultCaught(endpointPattern, fault.name(), field)) {
+                        System.out.printf("  -> Skipping fault '%s' on field '%s' (already caught by another test)%n", fault, field);
+                        continue;
+                    }
+
                     setFieldFault(context, field, fault, originalResponse, endpointPattern);
 
-                System.out.printf("  -> Rerunning test '%s' with fault: %s on field: '%s'%n", testName, fault, field);
-                TestLevelSimulationResults testLevelResults = new TestLevelSimulationResults();
-                testLevelResults.setTest(testName);
+                    System.out.printf("  -> Rerunning test '%s' with fault: %s on field: '%s'%n", testName, fault, field);
+                    TestLevelSimulationResults testLevelResults = new TestLevelSimulationResults();
+                    testLevelResults.setTest(testName);
 
-                try {
-                    context.resetRequestCounter(); // Reset counter before each test re-run
-                    joinPoint.proceed(); // Re-run the test method
-                    testLevelResults.setCaught(false);
-                    System.err.printf("  [FAULT NOT DETECTED] Test '%s' passed for fault '%s' on field '%s'%n", testName, fault, field);
-                } catch (Throwable t) {
-                    testLevelResults.setCaught(true);
-                    testLevelResults.setError(t.getMessage());
-                    System.out.printf("  [FAULT DETECTED] Test '%s' failed as expected for fault '%s' on field '%s'%n", testName, fault, field);
-                } finally {
-                    context.clearSimulation();
-                }
+                    try {
+                        context.resetRequestCounter(); // Reset counter before each test re-run
+                        joinPoint.proceed(); // Re-run the test method
+                        testLevelResults.setCaught(false);
+                        System.err.printf("  [FAULT NOT DETECTED] Test '%s' passed for fault '%s' on field '%s'%n", testName, fault, field);
+                    } catch (Throwable t) {
+                        testLevelResults.setCaught(true);
+                        testLevelResults.setError(t.getMessage());
+                        System.out.printf("  [FAULT DETECTED] Test '%s' failed as expected for fault '%s' on field '%s'%n", testName, fault, field);
+
+                        // Mark as caught if stop_on_first_catch is enabled
+                        if (stopOnFirstCatch) {
+                            REPORT.markContractFaultCaught(endpointPattern, fault.name(), field);
+                        }
+                    } finally {
+                        context.clearSimulation();
+                    }
 
                     REPORT.recordResult(endpointPattern, field, fault.name(), testLevelResults);
                 }

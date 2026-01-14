@@ -21,6 +21,13 @@ public class FaultSimulationReport {
     private final FaultStrategyApiClient apiClient;
     private LocalDateTime executionStartTime;
 
+    /**
+     * Tracks faults that have been caught by at least one test.
+     * Key format: "endpoint|contract|faultType|field" or "endpoint|invariant|invariantName"
+     * Used when stop_on_first_catch is enabled to skip redundant simulations.
+     */
+    private final Set<String> caughtFaults = ConcurrentHashMap.newKeySet();
+
     private FaultSimulationReport() {
         this.objectMapper = new ObjectMapper();
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -64,6 +71,73 @@ public class FaultSimulationReport {
         report.computeIfAbsent(endpoint, k -> new EndpointFaultResults())
                 .recordInvariantFault(invariantName, result);
     }
+
+    // ==================== stop_on_first_catch tracking ====================
+
+    /**
+     * Checks if a contract fault has already been caught by any test.
+     *
+     * @param endpoint  The API endpoint
+     * @param faultType The fault type (e.g., "null_field", "missing_field")
+     * @param field     The field name
+     * @return true if the fault has been caught, false otherwise
+     */
+    public boolean isContractFaultCaught(String endpoint, String faultType, String field) {
+        String key = buildContractFaultKey(endpoint, faultType, field);
+        return caughtFaults.contains(key);
+    }
+
+    /**
+     * Marks a contract fault as caught.
+     *
+     * @param endpoint  The API endpoint
+     * @param faultType The fault type
+     * @param field     The field name
+     */
+    public void markContractFaultCaught(String endpoint, String faultType, String field) {
+        String key = buildContractFaultKey(endpoint, faultType, field);
+        caughtFaults.add(key);
+    }
+
+    /**
+     * Checks if an invariant fault has already been caught by any test.
+     *
+     * @param endpoint      The API endpoint
+     * @param invariantName The invariant name
+     * @return true if the fault has been caught, false otherwise
+     */
+    public boolean isInvariantFaultCaught(String endpoint, String invariantName) {
+        String key = buildInvariantFaultKey(endpoint, invariantName);
+        return caughtFaults.contains(key);
+    }
+
+    /**
+     * Marks an invariant fault as caught.
+     *
+     * @param endpoint      The API endpoint
+     * @param invariantName The invariant name
+     */
+    public void markInvariantFaultCaught(String endpoint, String invariantName) {
+        String key = buildInvariantFaultKey(endpoint, invariantName);
+        caughtFaults.add(key);
+    }
+
+    /**
+     * Clears the caught faults tracking. Useful for test isolation.
+     */
+    public void clearCaughtFaultsTracking() {
+        caughtFaults.clear();
+    }
+
+    private String buildContractFaultKey(String endpoint, String faultType, String field) {
+        return endpoint + "|contract|" + faultType + "|" + field;
+    }
+
+    private String buildInvariantFaultKey(String endpoint, String invariantName) {
+        return endpoint + "|invariant|" + invariantName;
+    }
+
+    // ======================================================================
 
     public void sendResultsToAPI() {
         try {

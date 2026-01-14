@@ -58,9 +58,16 @@ public class InvariantSimulator {
                 invariants.size(), httpMethod, endpointPattern);
 
         Map<String, Object> responseMap = originalResponse.getResponseAsMap();
+        boolean stopOnFirstCatch = SimulatorConfig.isStopOnFirstCatchEnabled();
 
         for (InvariantConfig invariant : invariants) {
             String invariantName = invariant.getName() != null ? invariant.getName() : "unnamed_invariant";
+
+            // Skip if stop_on_first_catch is enabled and invariant fault was already caught
+            if (stopOnFirstCatch && REPORT.isInvariantFaultCaught(endpointPattern, invariantName)) {
+                System.out.printf("  -> Skipping invariant '%s' (already caught by another test)%n", invariantName);
+                continue;
+            }
 
             // First, verify the original response satisfies the invariant
             ConditionEvaluator.EvaluationResult originalResult =
@@ -89,7 +96,7 @@ public class InvariantSimulator {
             // Execute each mutation
             for (Mutation mutation : mutations) {
                 executeMutation(joinPoint, context, testName, endpointPattern,
-                        originalResponse, requestIndex, invariant, mutation);
+                        originalResponse, requestIndex, invariant, mutation, stopOnFirstCatch);
             }
         }
     }
@@ -105,7 +112,8 @@ public class InvariantSimulator {
             Response originalResponse,
             int requestIndex,
             InvariantConfig invariant,
-            Mutation mutation) {
+            Mutation mutation,
+            boolean stopOnFirstCatch) {
 
         String invariantName = invariant.getName() != null ? invariant.getName() : "unnamed";
         String field = mutation.getField();
@@ -144,6 +152,11 @@ public class InvariantSimulator {
                 testLevelResults.setError(t.getMessage());
                 System.out.printf("    [INVARIANT VALIDATED] Test '%s' failed as expected for violation of '%s' on field '%s'%n",
                         testName, invariantName, field);
+
+                // Mark as caught if stop_on_first_catch is enabled
+                if (stopOnFirstCatch) {
+                    REPORT.markInvariantFaultCaught(endpointPattern, invariantName);
+                }
 
             } finally {
                 context.clearSimulation();

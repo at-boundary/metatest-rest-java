@@ -224,6 +224,13 @@ public class SimulatorConfig {
          * Default quantifier for array fields: "all" (default), "any", "none"
          */
         public String default_quantifier = "all";
+
+        /**
+         * If true, skip simulation for a fault once any test has caught it.
+         * Useful for quick/smoke runs where you just want to know if at least one test catches each fault.
+         * Default: false (run all simulations for full coverage information)
+         */
+        public boolean stop_on_first_catch = false;
     }
 
     /**
@@ -538,6 +545,20 @@ public class SimulatorConfig {
             return config.settings.default_quantifier;
         }
         return "all";
+    }
+
+    /**
+     * Checks if stop_on_first_catch optimization is enabled.
+     * When enabled, once a fault is caught by any test, it will be skipped for remaining tests.
+     *
+     * @return true if stop_on_first_catch is enabled, false otherwise
+     */
+    public static boolean isStopOnFirstCatchEnabled() {
+        SimulatorConfig config = configSource.getConfig();
+        if (config != null && config.settings != null) {
+            return config.settings.stop_on_first_catch;
+        }
+        return false;
     }
 
     /**

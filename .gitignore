@@ -23,6 +23,7 @@
 .DS_Store
 Thumbs.db
 
+.notes
 *metatester.properties
 gap_*
 schema_coverage*
