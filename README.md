@@ -13,8 +13,6 @@ Metatest validates REST API test reliability through systematic fault injection 
 - [Architecture](#architecture)
 - [Technical Implementation](#technical-implementation)
 - [Configuration](#configuration)
-  - [Local Mode (YAML)](#local-mode-yaml)
-  - [API Mode (Cloud)](#api-mode-cloud)
 - [Invariants DSL Reference](#invariants-dsl-reference)
   - [Supported Operators](#supported-operators)
   - [Field References](#field-references)
@@ -78,85 +76,6 @@ metatest-rest-java/
     └── MetatestPlugin            # Automatic AspectJ configuration
 ```
 
-### Execution Flow
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Test Execution Phase                                       │
-│  (Baseline capture)                                         │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   @Test method invoked         │
-         │   AspectExecutor intercepts    │
-         └────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   HTTP client makes request    │
-         │   Request captured to context  │
-         └────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   Response received            │
-         │   Response captured to context │
-         └────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   Test completes (original)    │
-         │   Baseline established         │
-         └────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Fault Simulation Phase                                     │
-│  (Mutation testing)                                         │
-└─────────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   For each response field:     │
-         │     For each fault type:       │
-         └────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   Apply fault to response      │
-         │   (null, missing, empty, etc)  │
-         └────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   Re-execute @Test method      │
-         │   with faulty response         │
-         └────────────────────────────────┘
-                          │
-                    ┌─────┴─────┐
-                    │           │
-                  Pass        Fail
-                    │           │
-                    ▼           ▼
-            ┌──────────┐  ┌──────────┐
-            │  ESCAPED │  │ DETECTED │
-            │  FAULT   │  │  FAULT   │
-            └──────────┘  └──────────┘
-                    │           │
-                    └─────┬─────┘
-                          ▼
-         ┌────────────────────────────────┐
-         │   Record result in report      │
-         └────────────────────────────────┘
-                          │
-                          ▼
-         ┌────────────────────────────────┐
-         │   Generate fault_simulation    │
-         │   _report.json                 │
-         └────────────────────────────────┘
-```
-
 ## Technical Implementation
 
 ### AspectJ Interception
@@ -215,8 +134,6 @@ for (String field : responseFields) {
 
 ## Configuration
 
-### Local Mode (YAML)
-
 Create `src/main/resources/config.yml`:
 
 ```yaml
@@ -225,6 +142,7 @@ version: "1.0"
 # Global settings
 settings:
   default_quantifier: all  # For array fields: all, any, none
+  stop_on_first_catch: false  # Skip simulation once any test catches a fault (useful for quick runs)
 
 # =============================================================================
 # INVARIANTS - Business Rule Validation (NEW)
@@ -384,6 +302,8 @@ version: "1.0"
 
 settings:
   default_quantifier: all
+  # Set to true for faster smoke runs (skips faults already caught by other tests)
+  stop_on_first_catch: false
 
 endpoints:
   # ============================================
@@ -482,24 +402,6 @@ faults:
   missing_field:
     enabled: true
 ```
-
-### API Mode (Cloud)
-
-Create `src/main/resources/metatest.properties`:
-
-```properties
-metatest.api.key=mt_proj_xxxxxxxxxxxxxxxx
-metatest.project.id=your-project-id
-metatest.api.url=https://api.metatest.io
-```
-
-Or set environment variables:
-```bash
-export METATEST_API_KEY=mt_proj_xxxxxxxxxxxxxxxx
-export METATEST_PROJECT_ID=your-project-id
-```
-
-API mode fetches fault strategies from a centralized service and submits simulation results for team-wide analysis.
 
 ## Installation
 
@@ -811,10 +713,27 @@ Simulation time increases linearly with:
 Example: 10 tests, 5 fields per response, 4 fault types = 200 additional test runs.
 
 **Optimization strategies:**
+- Use `settings.stop_on_first_catch: true` to skip faults already caught by other tests (best for smoke runs)
 - Use `simulation.only_success_responses: true` to skip error responses
 - Exclude slow/integration tests via `tests.exclude` patterns
 - Run Metatest on CI only, not during local development
 - Configure `simulation.min_response_fields` to skip simple responses
+
+### Stop on First Catch
+
+When `stop_on_first_catch: true` is enabled, Metatest skips simulating a fault once any test has already caught it:
+
+```yaml
+settings:
+  stop_on_first_catch: true
+```
+
+**Use cases:**
+- Quick smoke runs to verify at least one test catches each fault type
+- Faster feedback during development
+- CI pipelines where you only need pass/fail per fault
+
+**Trade-off:** You lose information about which specific tests catch each fault. Set to `false` (default) for complete coverage analysis.
 
 ### Memory Usage
 
