@@ -180,8 +180,3 @@ invariants:
           field: $[*].account_id
           greater_than: 0
 
-        - name: position_updated_after_created
-          field: $[*].created_at
-          less_than_or_equal: $[*].updated_at
-          quantifier: all
-

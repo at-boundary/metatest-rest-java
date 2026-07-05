@@ -20,6 +20,10 @@ invariants:
           field: $[*].symbol
           is_not_empty: true
 
+        - name: all_orders_valid_order_type
+          field: $[*].order_type
+          in: [BUY, SELL]
+
         - name: all_orders_non_negative_price
           field: $[*].price
           greater_than_or_equal: 0
@@ -29,6 +33,10 @@ invariants:
         - name: new_order_valid_status
           field: status
           in: [PENDING, FILLED, REJECTED]
+
+        - name: new_order_valid_order_type
+          field: order_type
+          in: [BUY, SELL]
 
         - name: new_order_has_symbol
           field: symbol

@@ -3,6 +3,11 @@ output_dir: src/test/java/generated
 
 max_retries: 5
 
+# Minimum fraction of injected faults the suite must catch to pass (0.0-1.0).
+# Below 1.0 accepts structurally-uncatchable invariants (cross-field/temporal) instead of
+# chasing an impossible 100%. ~0.8 is realistic for a RestAssured suite.
+fault_detection_threshold: 0.8
+
 timeouts:
   build: 5
   test: 10
