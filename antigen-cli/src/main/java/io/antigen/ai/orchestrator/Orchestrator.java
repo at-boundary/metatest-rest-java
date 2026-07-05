@@ -59,6 +59,7 @@ public class Orchestrator {
         for (int attempt = 1; attempt <= config.getMaxRetries(); attempt++) {
             System.out.println();
             System.out.printf("=== Attempt %d/%d ===%n", attempt, config.getMaxRetries());
+            appendProgress(projectPath, String.format("%n--- Attempt %d/%d ---", attempt, config.getMaxRetries()));
 
             System.out.println("State 1: Generating tests with Claude...");
             GenerationPhase genPhase = claudeGenerator.generate(context);
@@ -66,9 +67,11 @@ public class Orchestrator {
 
             if (genPhase.failed()) {
                 System.out.println("Generation failed: " + genPhase.getFeedback());
+                appendProgress(projectPath, "Generate: FAILED - " + genPhase.getFeedback());
                 context = context.addFeedback(genPhase);
                 continue;
             }
+            appendProgress(projectPath, "Generate: OK");
 
             System.out.println("State 2: Building project...");
             BuildPhase buildPhase = gradleRunner.build(context);
@@ -76,9 +79,11 @@ public class Orchestrator {
 
             if (buildPhase.failed()) {
                 System.out.printf("Build failed with %d errors%n", buildPhase.getCompilationErrors().size());
+                appendProgress(projectPath, "Build: FAILED - " + buildPhase.getCompilationErrors().size() + " error(s)");
                 context = context.addFeedback(buildPhase);
                 continue;
             }
+            appendProgress(projectPath, "Build: OK");
 
             System.out.println("State 3: Running tests (without Antigen)...");
             TestPhase testPhase = gradleRunner.runTests(context);
@@ -86,9 +91,11 @@ public class Orchestrator {
 
             if (testPhase.failed()) {
                 System.out.printf("Tests failed: %d failures%n", testPhase.getTestFailures().size());
+                appendProgress(projectPath, "Tests (no Antigen): FAILED - " + testPhase.getTestFailures().size() + " failure(s)");
                 context = context.addFeedback(testPhase);
                 continue;
             }
+            appendProgress(projectPath, "Tests (no Antigen): OK");
 
             System.out.println("State 4: Running tests with Antigen fault injection...");
             AntigenPhase antigenPhase = gradleRunner.runAntigen(context);
@@ -96,40 +103,77 @@ public class Orchestrator {
             if (antigenPhase.isError()) {
                 System.out.println("Result: ERROR");
                 System.out.println("Antigen simulation could not run: " + antigenPhase.getErrorMessage());
+                appendProgress(projectPath, "Antigen: ERROR - " + antigenPhase.getErrorMessage());
+                appendProgress(projectPath, "=== OUTCOME: FAILED (simulation error) after " + attempt + " attempt(s) ===");
                 return GenerationResult.failure(attempt, antigenPhase.getErrorMessage());
             }
 
-            System.out.println("Result: " + (antigenPhase.isSuccess() ? "SUCCESS" : "FAILED"));
-            System.out.printf("Fault Detection Rate: %.1f%%%n", antigenPhase.getFaultDetectionRate() * 100);
+            double threshold = config.getFaultDetectionThreshold();
+            double rate = antigenPhase.getFaultDetectionRate();
+            boolean meetsThreshold = rate >= threshold - 1e-9;
 
-            if (antigenPhase.hasEscapedFaults()) {
-                System.out.printf("Antigen failed: %d faults escaped%n", antigenPhase.getEscapedFaults().size());
+            System.out.printf("Fault Detection Rate: %.1f%% (threshold %.1f%%)%n", rate * 100, threshold * 100);
+            appendProgress(projectPath, String.format("Antigen: %.1f%% caught (%d/%d), %d escaped, threshold %.1f%%",
+                    rate * 100, antigenPhase.getCaughtFaults(),
+                    antigenPhase.getTotalFaults(), antigenPhase.getEscapedFaults().size(), threshold * 100));
+
+            if (!meetsThreshold) {
+                System.out.printf("Below threshold: %d faults escaped (%.1f%% < %.1f%%)%n",
+                        antigenPhase.getEscapedFaults().size(), rate * 100, threshold * 100);
 
                 if (shouldRetry(context, attempt)) {
                     context = context.addFeedback(antigenPhase);
                     continue;
                 } else {
                     System.out.println("Same Antigen failures repeating, stopping retries");
+                    Path repeatReport = gradleRunner.generateFullReport(context);
+                    if (repeatReport != null) {
+                        System.out.println("Antigen report: " + repeatReport);
+                    }
+                    appendProgress(projectPath, "=== OUTCOME: FAILED (escapes repeating) after " + attempt + " attempt(s) ==="
+                            + (repeatReport != null ? "\nReport: " + repeatReport : ""));
                     return GenerationResult.failure(attempt,
                             "Antigen failures are repeating. Generated tests may be at maximum quality.");
                 }
             }
 
             System.out.println("=== SUCCESS ===");
-            System.out.printf("Tests generated and validated in %d attempts%n", attempt);
+            System.out.printf("Tests generated and validated in %d attempts (%.1f%% detection, threshold %.1f%%)%n",
+                    attempt, rate * 100, threshold * 100);
+            if (antigenPhase.hasEscapedFaults()) {
+                System.out.printf("%d fault(s) escaped but detection meets the configured threshold.%n",
+                        antigenPhase.getEscapedFaults().size());
+            }
 
             Path htmlReport = gradleRunner.generateFullReport(context);
             if (htmlReport != null) {
                 System.out.println("Antigen report (proof): " + htmlReport);
             }
+            appendProgress(projectPath, "=== OUTCOME: SUCCESS after " + attempt + " attempt(s) ==="
+                    + (htmlReport != null ? "\nReport: " + htmlReport : ""));
 
             return GenerationResult.success(attempt, genPhase.getGeneratedFiles());
         }
 
         System.out.println("=== FAILURE ===");
         System.out.printf("Failed to generate valid tests after %d attempts%n", config.getMaxRetries());
+        Path exhaustedReport = gradleRunner.generateFullReport(context);
+        if (exhaustedReport != null) {
+            System.out.println("Antigen report: " + exhaustedReport);
+        }
+        appendProgress(projectPath, "=== OUTCOME: FAILED (max retries exhausted) after " + config.getMaxRetries() + " attempts ==="
+                + (exhaustedReport != null ? "\nReport: " + exhaustedReport : ""));
         return GenerationResult.failure(config.getMaxRetries(),
                 "Maximum retries exceeded. Last error: " + context.getLatestFeedback().getFeedback());
+    }
+
+    private void appendProgress(Path projectPath, String line) {
+        try {
+            Files.writeString(projectPath.resolve("ai_logs.txt"), line + "\n",
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            System.err.println("[Antigen] Failed to append progress to ai_logs.txt: " + e.getMessage());
+        }
     }
 
     private static final DateTimeFormatter RUN_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");

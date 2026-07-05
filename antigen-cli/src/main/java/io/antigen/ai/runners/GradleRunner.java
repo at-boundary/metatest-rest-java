@@ -145,6 +145,18 @@ public class GradleRunner {
         try {
             AntigenReport report = parseAntigenReport(reportPath);
 
+            if (report.getTotalFaults() == 0) {
+                log.error("Antigen simulated zero faults - report at {} is empty", reportPath);
+                return AntigenPhase.error(
+                        "Antigen simulated ZERO faults -- nothing was validated, so this is NOT a pass "
+                        + "(the report at " + reportPath + " is empty). Most likely the generated tests "
+                        + "failed their baseline run during simulation -- commonly state pollution: the "
+                        + "tests create resources against the live API and are not isolated/idempotent, so "
+                        + "re-running them returns errors and no response is left to mutate. It can also "
+                        + "mean no invariant matched the exercised endpoints. Either way, a zero-fault run "
+                        + "must not be reported as success.");
+            }
+
             if (report.getEscapedFaults().isEmpty()) {
                 log.info("Antigen passed - all faults caught");
                 return AntigenPhase.success(
@@ -202,10 +214,28 @@ public class GradleRunner {
                 .build();
 
         try {
-            processExecutor.execute(command);
-            Path html = context.getProjectPath()
-                    .resolve(io.antigen.core.simulation.FaultSimulationReport.OUTPUT_DIR)
-                    .resolve("antigen_report.html");
+            ProcessExecutor.ProcessResult result = processExecutor.execute(command);
+
+            // The run must succeed (tests pass their baseline) for the report to be meaningful. A
+            // non-zero exit means a test failed to compile or run -- there is no valid simulation to
+            // present, so do not surface a report that would look "green" over a broken run.
+            if (!result.isSuccess()) {
+                log.warn("Final report run failed (exit {}); no valid report to present", result.getExitCode());
+                return null;
+            }
+
+            Path reportDir = context.getProjectPath()
+                    .resolve(io.antigen.core.simulation.FaultSimulationReport.OUTPUT_DIR);
+            Path reportJson = reportDir.resolve("fault_simulation_report.json");
+
+            // Guard against an empty report (zero faults simulated) the same way runAntigen does, so
+            // we never present an empty dashboard as proof.
+            if (!Files.exists(reportJson) || parseAntigenReport(reportJson).getTotalFaults() == 0) {
+                log.warn("Final report run produced no simulated faults; no report to present");
+                return null;
+            }
+
+            Path html = reportDir.resolve("antigen_report.html");
             return Files.exists(html) ? html : null;
         } catch (Exception e) {
             log.warn("Failed to generate final Antigen report: {}", e.getMessage());

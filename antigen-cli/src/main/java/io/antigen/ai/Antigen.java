@@ -91,13 +91,26 @@ public class Antigen implements Callable<Integer> {
                     requirements.addAll(loadRequirementsFromFile(requirementsFile));
                 }
 
-                AntigenConfig config = AntigenConfig.builder()
+                AntigenConfig.AntigenConfigBuilder configBuilder = AntigenConfig.builder()
                         .maxRetries(maxRetries)
                         .verbose(verbose)
                         .buildTimeout(Duration.ofMinutes(buildTimeoutMinutes))
                         .testTimeout(Duration.ofMinutes(testTimeoutMinutes))
-                        .antigenTimeout(Duration.ofMinutes(antigenTimeoutMinutes))
-                        .build();
+                        .antigenTimeout(Duration.ofMinutes(antigenTimeoutMinutes));
+
+                // Optional fault_detection_threshold from src/test/resources/antigen/generation/config.yml.
+                var genConfig = io.antigen.ai.config.GenerationConfigLoader.load(project);
+                if (genConfig.isPresent() && genConfig.get().fault_detection_threshold != null) {
+                    double threshold = genConfig.get().fault_detection_threshold;
+                    if (threshold < 0.0 || threshold > 1.0) {
+                        System.err.println("Error: fault_detection_threshold in config.yml must be between 0.0 and 1.0 (got " + threshold + ")");
+                        return 1;
+                    }
+                    configBuilder.faultDetectionThreshold(threshold);
+                    System.out.printf("Fault detection threshold: %.0f%% (from config.yml)%n", threshold * 100);
+                }
+
+                AntigenConfig config = configBuilder.build();
 
                 Orchestrator orchestrator = new Orchestrator(config);
                 GenerationResult result = orchestrator.generate(spec, project, output, requirements);
