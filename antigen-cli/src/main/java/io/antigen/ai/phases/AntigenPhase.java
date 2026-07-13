@@ -4,6 +4,10 @@ import io.antigen.ai.model.EscapedFault;
 import lombok.Value;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Comparator;
+import java.util.stream.Collectors;
 
 @Value
 public class AntigenPhase implements PhaseResult {
@@ -50,25 +54,61 @@ public class AntigenPhase implements PhaseResult {
         return String.format("""
             ANTIGEN FAILURE - Your tests passed but did NOT catch %d out of %d injected faults (%.1f%% detection rate).
 
-            Some of your assertions are too weak: a response field was mutated to an invalid value
-            and your test still passed. You are deliberately NOT told which fields or faults escaped --
-            that information is withheld so your assertions verify the API's real contract derived from
-            the specification, not a leaked answer key. Do not look for, open, or read the Antigen
-            report or anything under build/ -- it is intentionally not part of your input.
+            Only the test methods listed below have assertion gaps: a response field was mutated to an
+            invalid value and the test still passed. The count is how many injected faults escaped each
+            test.
+            %s
+            Strengthen ONLY the assertions in the test methods listed above. Do NOT modify any test that
+            is not listed -- those already fully verify their responses, and changing them risks
+            regressing working assertions.
 
-            Strengthen the assertions across ALL of your tests, deriving every constraint from the API
-            specification:
-            - Assert every field in every response body, not just the status code.
+            You are NOT told which specific fields or values were mutated -- that is withheld so your
+            assertions verify the API's real contract derived from the specification, not a leaked
+            answer key. Do not open or read the Antigen report or anything under build/.
+
+            For each listed test, re-derive its assertions from the API specification:
+            - Assert every field in the response body, not just the status code.
             - For each field, assert it is present, non-null, and of the correct JSON type.
             - Assert the value constraints the spec implies: allowed enum values, numeric ranges,
               non-empty strings and arrays, and required formats.
             - Validate nested objects and array elements, not only top-level fields.
-
-            Read the API specification and your existing test files, then rewrite the assertions so
-            each response is fully validated.
             """,
             escapedFaults.size(),
             totalFaults,
-            faultDetectionRate * 100);
+            faultDetectionRate * 100,
+            formatEscapedTests());
+    }
+
+    /**
+     * Groups escaped faults by the test method that failed to catch them, revealing only the test
+     * name and how many faults escaped it -- never the field, fault type, or expected value. This
+     * points the agent at the tests it needs to strengthen (so it leaves its passing tests alone)
+     * without leaking the injected fault set it must not overfit to.
+     */
+    private String formatEscapedTests() {
+        // A fault's testName holds the tests that exercised its endpoint but did not catch it
+        // (comma-joined). Attribute the escape to each of those tests individually, so a test that
+        // ran against a mutated response and stayed green is counted as having missed that fault.
+        // A fault counted against several tests raises each of their tallies (counts may sum to
+        // more than the total escaped -- each test is independently responsible for its own gap).
+        Map<String, Long> byTest = new LinkedHashMap<>();
+        for (EscapedFault fault : escapedFaults) {
+            String testName = fault.getTestName();
+            if (testName == null || testName.isBlank()) {
+                byTest.merge("(a response with NO covering test -- add a test that asserts it)", 1L, Long::sum);
+                continue;
+            }
+            for (String test : testName.split(",")) {
+                String name = test.trim();
+                if (!name.isBlank()) {
+                    byTest.merge(name, 1L, Long::sum);
+                }
+            }
+        }
+
+        return byTest.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                .map(e -> String.format("  - %s: %d escaped", e.getKey(), e.getValue()))
+                .collect(Collectors.joining("\n"));
     }
 }

@@ -54,6 +54,13 @@ publishing {
     }
 }
 
+tasks.jar {
+    // Stamp the version so AntigenPlugin can resolve the matching antigen-cli for generateTests.
+    manifest {
+        attributes("Implementation-Version" to project.version)
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
 }

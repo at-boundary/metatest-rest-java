@@ -59,6 +59,11 @@ public class ClaudeGenerator {
             cmdList.add(prompt);
             cmdList.add("--output-format");
             cmdList.add("text");
+
+            if (config.getModel() != null && !config.getModel().isBlank()) {
+                cmdList.add("--model");
+                cmdList.add(config.getModel());
+            }
             cmdList.add("--allowedTools");
             cmdList.add(config.getAllowedTools());
 

@@ -58,6 +58,9 @@ public class Antigen implements Callable<Integer> {
         @Option(names = {"--output-dir"}, description = "Output directory for generated tests, relative to project (default: src/test/java/generated)", defaultValue = "src/test/java/generated")
         private String outputDir;
 
+        @Option(names = {"--model"}, description = "Claude model to use (e.g. claude-opus-4-8, sonnet). Overrides model in config.yml; default is the Claude CLI's own configured model.")
+        private String model;
+
         @Override
         public Integer call() {
             try {
@@ -108,6 +111,14 @@ public class Antigen implements Callable<Integer> {
                     }
                     configBuilder.faultDetectionThreshold(threshold);
                     System.out.printf("Fault detection threshold: %.0f%% (from config.yml)%n", threshold * 100);
+                }
+
+                // Claude model: --model > config.yml model > Claude CLI default.
+                String resolvedModel = (model != null && !model.isBlank()) ? model
+                        : (genConfig.isPresent() ? genConfig.get().model : null);
+                if (resolvedModel != null && !resolvedModel.isBlank()) {
+                    configBuilder.model(resolvedModel);
+                    System.out.println("Claude model: " + resolvedModel);
                 }
 
                 AntigenConfig config = configBuilder.build();

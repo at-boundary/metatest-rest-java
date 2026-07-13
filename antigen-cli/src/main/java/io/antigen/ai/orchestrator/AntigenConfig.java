@@ -15,6 +15,9 @@ public class AntigenConfig {
     @Builder.Default
     String claudeCommand = detectClaudeCommand();
 
+    // Claude model for the CLI's --model flag. Null = use the Claude CLI's own default.
+    String model;
+
     @Builder.Default
     String allowedTools = "Write,Read,Edit";
 

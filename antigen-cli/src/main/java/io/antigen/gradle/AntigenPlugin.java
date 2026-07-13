@@ -53,16 +53,31 @@ public class AntigenPlugin implements Plugin<Project> {
             task.getMainClass().set("io.antigen.ai.Antigen");
 
             task.doFirst(t -> {
-                var testRuntimeClasspath = project.getConfigurations().findByName("testRuntimeClasspath");
-                var runtimeClasspath = project.getConfigurations().findByName("runtimeClasspath");
-                var cp = testRuntimeClasspath != null ? testRuntimeClasspath : runtimeClasspath;
-                if (cp == null) {
-                    throw new IllegalStateException("generateTests requires the java plugin to be applied");
-                }
-                task.setClasspath(cp);
+                // Resolve antigen-cli (plus its transitive deps: picocli, jackson, engine, logback)
+                // as a fresh detached configuration against the project's repositories. We deliberately
+                // do NOT reuse the buildscript classpath: Gradle serves *instrumented* copies of
+                // buildscript jars from its cache, and forking a JavaExec off those yields a classpath
+                // that fails to resolve some classes (e.g. NoClassDefFoundError for a class only
+                // referenced on the happy path). A detached configuration gives clean, original jars.
+                // The CLI shells out to ./gradlew for build/test, so it does not need the consumer's
+                // own (test) classes — the consumer build only has to apply the plugin.
+                String cliCoords = "io.antigen:antigen-cli:" + antigenCliVersion();
+                var cliDep = project.getDependencies().create(cliCoords);
+                var cliClasspath = project.getConfigurations().detachedConfiguration(cliDep);
+                task.setClasspath(cliClasspath);
                 task.setArgs(buildArgs(project, extension));
             });
         });
+    }
+
+    // Version of antigen-cli to resolve for the generateTests classpath. Read from the plugin jar's
+    // manifest (Implementation-Version, stamped by antigen-cli's build) so it always matches the
+    // applied plugin; falls back to the current snapshot if the manifest is unavailable.
+    private static final String FALLBACK_VERSION = "1.0.0-SNAPSHOT";
+
+    private static String antigenCliVersion() {
+        String v = AntigenPlugin.class.getPackage().getImplementationVersion();
+        return (v != null && !v.isBlank()) ? v : FALLBACK_VERSION;
     }
 
     private List<String> buildArgs(Project project, AntigenExtension extension) {
@@ -100,8 +115,10 @@ public class AntigenPlugin implements Plugin<Project> {
             }
         }
 
-        // output_dir: config.yml > default
-        String outputDir = fileConfig.output_dir != null ? fileConfig.output_dir : "src/test/java/generated";
+        // output_dir: -Poutput > config.yml > default
+        String outputDir = (String) project.findProperty("output");
+        if (outputDir == null || outputDir.isBlank()) outputDir = fileConfig.output_dir;
+        if (outputDir == null || outputDir.isBlank()) outputDir = "src/test/java/generated";
         args.add("--output-dir");
         args.add(outputDir);
 

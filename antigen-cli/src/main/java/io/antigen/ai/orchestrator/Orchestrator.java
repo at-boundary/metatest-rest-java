@@ -120,21 +120,8 @@ public class Orchestrator {
             if (!meetsThreshold) {
                 System.out.printf("Below threshold: %d faults escaped (%.1f%% < %.1f%%)%n",
                         antigenPhase.getEscapedFaults().size(), rate * 100, threshold * 100);
-
-                if (shouldRetry(context, attempt)) {
-                    context = context.addFeedback(antigenPhase);
-                    continue;
-                } else {
-                    System.out.println("Same Antigen failures repeating, stopping retries");
-                    Path repeatReport = gradleRunner.generateFullReport(context);
-                    if (repeatReport != null) {
-                        System.out.println("Antigen report: " + repeatReport);
-                    }
-                    appendProgress(projectPath, "=== OUTCOME: FAILED (escapes repeating) after " + attempt + " attempt(s) ==="
-                            + (repeatReport != null ? "\nReport: " + repeatReport : ""));
-                    return GenerationResult.failure(attempt,
-                            "Antigen failures are repeating. Generated tests may be at maximum quality.");
-                }
+                context = context.addFeedback(antigenPhase);
+                continue;
             }
 
             System.out.println("=== SUCCESS ===");
@@ -193,27 +180,4 @@ public class Orchestrator {
         }
     }
 
-    private boolean shouldRetry(GenerationContext context, int currentAttempt) {
-        if (currentAttempt >= config.getMaxRetries()) {
-            return false;
-        }
-
-        if (context.getFeedbackHistory().size() >= 2) {
-            List<AntigenPhase> recentAntigenPhases = context.getFeedbackHistory().stream()
-                    .filter(phase -> phase instanceof AntigenPhase)
-                    .map(phase -> (AntigenPhase) phase)
-                    .toList();
-
-            if (recentAntigenPhases.size() >= 2) {
-                AntigenPhase last = recentAntigenPhases.get(recentAntigenPhases.size() - 1);
-                AntigenPhase secondLast = recentAntigenPhases.get(recentAntigenPhases.size() - 2);
-
-                if (last.getEscapedFaults().equals(secondLast.getEscapedFaults())) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
 }
