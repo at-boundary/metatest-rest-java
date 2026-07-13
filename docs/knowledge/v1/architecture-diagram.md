@@ -1,6 +1,6 @@
 # Antigen — architecture diagram
 
-Visual companion to [`docs/knowledge/architecture.md`](knowledge/architecture.md). Antigen runs
+Visual companion to [`docs/knowledge/architecture.md`](architecture.md). Antigen runs
 fault simulation against an API test suite: it mutates HTTP responses to violate declared
 **invariants** and reports whether tests catch the faults (**caught**) or miss them (**escaped**).
 

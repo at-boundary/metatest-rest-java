@@ -1,5 +1,9 @@
 # Antigen knowledge base
 
+> **Start here for current direction:** [`../v2/idea_update.md`](../v2/idea_update.md) — how fault
+> simulation and AI test generation converged into one loop, and what to tackle next. Read it before
+> the reference docs below; they remain the authoritative *how-it-works* detail.
+
 Durable, committed project knowledge — the *why* and the non-obvious *how* that the code and
 git history don't make clear. (Distinct from Claude's personal memory, which is private and
 machine-local; this travels with the repo.)

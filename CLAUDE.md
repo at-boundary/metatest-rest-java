@@ -6,7 +6,7 @@ declared business **invariants** and reports whether the tests catch the faults 
 
 ## Knowledge base
 
-Durable project knowledge lives in [`docs/knowledge/`](docs/knowledge/README.md):
+Durable project knowledge lives in [`docs/knowledge/`](docs/knowledge/v1/README.md):
 
 - `architecture.md` — planned language-neutral engine + adapter model, protocol, migration phases.
 - `dsl.md` — future invariant authoring DSL and the invertibility law.

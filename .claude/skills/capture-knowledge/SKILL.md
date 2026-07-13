@@ -5,7 +5,7 @@ description: Record a finding, gotcha, or design decision into the repo knowledg
 
 # Capture knowledge
 
-Write a durable finding into [`docs/knowledge/`](../../../docs/knowledge/README.md). This is the
+Write a durable finding into [`docs/knowledge/`](../../../docs/knowledge/v1/README.md). This is the
 *action* of curating the KB; the KB content itself is plain markdown read on demand. Keep it
 committed and shared — distinct from Claude's private personal memory.
 
