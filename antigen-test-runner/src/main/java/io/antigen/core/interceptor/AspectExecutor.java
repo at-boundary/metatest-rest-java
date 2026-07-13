@@ -68,7 +68,6 @@ public class AspectExecutor {
             String endpointUrl = context.getOriginalRequest() != null ? context.getOriginalRequest().getUrl() : "";
 
             if (!SimulatorConfig.isTestExcluded(methodName)
-                    && !SimulatorConfig.isEndpointExcluded(endpointUrl)
                     && !resolvedConfig.isEndpointExcluded(endpointUrl)) {
                 Runner.executeTestWithSimulatedFaults(joinPoint, context);
             } else {

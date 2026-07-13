@@ -208,7 +208,8 @@ public class ConfigResolver {
     private static List<Pattern> mergeExcludedEndpointPatterns(
             TestScopedConfig classConfig, TestMethodConfig methodConfig) {
 
-        List<String> patterns = new ArrayList<>();
+        // Base layer: global antigen/simulation/config.yml exclusions apply to every test.
+        List<String> patterns = new ArrayList<>(SimulatorConfig.globalExcludedEndpointGlobs());
 
         if (classConfig != null && classConfig.exclusions != null && classConfig.exclusions.endpoints != null)
             patterns.addAll(classConfig.exclusions.endpoints);
