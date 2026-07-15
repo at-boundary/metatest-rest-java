@@ -65,10 +65,9 @@ public class AspectExecutor {
             }
             System.out.println("Original test run completed. Baseline response captured.");
 
-            String endpointUrl = context.getOriginalRequest() != null ? context.getOriginalRequest().getUrl() : "";
-
-            if (!SimulatorConfig.isTestExcluded(methodName)
-                    && !resolvedConfig.isEndpointExcluded(endpointUrl)) {
+            // Endpoint exclusion is applied per captured response inside FaultPlanner (a test can hit
+            // several endpoints), not here. This gate only handles whole-test exclusion by name.
+            if (!SimulatorConfig.isTestExcluded(methodName)) {
                 Runner.executeTestWithSimulatedFaults(joinPoint, context);
             } else {
                 System.out.println("Skipping fault simulation for this test due to exclusion rules.");

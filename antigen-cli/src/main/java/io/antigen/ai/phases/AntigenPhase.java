@@ -54,9 +54,11 @@ public class AntigenPhase implements PhaseResult {
         return String.format("""
             ANTIGEN FAILURE - Your tests passed but did NOT catch %d out of %d injected faults (%.1f%% detection rate).
 
-            Only the test methods listed below have assertion gaps: a response field was mutated to an
-            invalid value and the test still passed. The count is how many injected faults escaped each
-            test.
+            Each test method below let a mutated response field through: the value was made invalid and
+            the test still passed. The SAME escaped fault can be missed by several tests that exercise
+            the same endpoint, so the per-test counts below OVERLAP -- they will not sum to the %d
+            escaped faults above. Read each line as "this test needs stronger assertions", not as a
+            separate fault.
             %s
             Strengthen ONLY the assertions in the test methods listed above. Do NOT modify any test that
             is not listed -- those already fully verify their responses, and changing them risks
@@ -76,6 +78,7 @@ public class AntigenPhase implements PhaseResult {
             escapedFaults.size(),
             totalFaults,
             faultDetectionRate * 100,
+            escapedFaults.size(),
             formatEscapedTests());
     }
 
@@ -92,10 +95,11 @@ public class AntigenPhase implements PhaseResult {
         // A fault counted against several tests raises each of their tallies (counts may sum to
         // more than the total escaped -- each test is independently responsible for its own gap).
         Map<String, Long> byTest = new LinkedHashMap<>();
+        long noCoverage = 0;
         for (EscapedFault fault : escapedFaults) {
             String testName = fault.getTestName();
             if (testName == null || testName.isBlank()) {
-                byTest.merge("(a response with NO covering test -- add a test that asserts it)", 1L, Long::sum);
+                noCoverage++;
                 continue;
             }
             for (String test : testName.split(",")) {
@@ -106,9 +110,17 @@ public class AntigenPhase implements PhaseResult {
             }
         }
 
-        return byTest.entrySet().stream()
+        String lines = byTest.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
-                .map(e -> String.format("  - %s: %d escaped", e.getKey(), e.getValue()))
+                .map(e -> String.format("  - %s: missed %d escaped fault(s)", e.getKey(), e.getValue()))
                 .collect(Collectors.joining("\n"));
+
+        if (noCoverage > 0) {
+            String noCoverageLine = String.format(
+                    "  - %d escaped fault(s) had NO covering test -- add a test that exercises and asserts that response",
+                    noCoverage);
+            lines = lines.isEmpty() ? noCoverageLine : lines + "\n" + noCoverageLine;
+        }
+        return lines;
     }
 }

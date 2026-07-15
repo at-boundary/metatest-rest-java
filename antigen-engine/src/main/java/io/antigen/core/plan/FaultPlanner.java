@@ -73,6 +73,17 @@ public class FaultPlanner {
             String endpoint = EndpointPatternNormalizer.normalize(endpointPath);
             String method = request.getMethod();
 
+            // Per-response exclusion: a single test often captures several endpoints (e.g. it creates
+            // an account, then places an order). Exclusions apply to the captured RESPONSE being
+            // mutated, not to the whole test — so an excluded /accounts setup call is skipped while
+            // the /orders response it also captured is still simulated. Matched against the
+            // normalized request path; globs come from the global + class + method config.
+            if (resolvedConfig != null
+                    && (resolvedConfig.isEndpointExcluded(endpoint)
+                        || resolvedConfig.isEndpointExcluded(endpointPath))) {
+                continue;
+            }
+
             int before = plan.getRuns().size() + plan.getNotes().size();
             planRequest(plan, runCounter, endpoint, method, response, requestIndex, resolvedConfig);
 
