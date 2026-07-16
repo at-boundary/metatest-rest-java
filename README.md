@@ -2,156 +2,133 @@
 
 > **Research project — interfaces and configuration formats are unstable.**
 
-Antigen is a REST API test quality framework combining two capabilities:
+Antigen is a test-generation harness for HTTP APIs, reinforced by property-based fault simulation.
+It generates a test suite from an API specification, then evaluates that suite by mutating HTTP
+responses to violate declared semantic properties and checking whether the suite's assertions detect
+the mutations. Escaped mutations are fed back as a reinforcement signal, and generation iterates until
+the suite detects a target fraction of them. The fault simulator and the generation loop share one
+engine; the simulator is the objective function that the generator optimizes against.
 
-1. **Fault simulation** — intercepts HTTP responses during test execution, injects mutations derived from invariants you define, and measures how many your tests actually catch. Draws from mutation testing (evaluate tests, not code) and property-based testing (mutations are derived from invariant constraints, not code grammar).
-
-2. **AI test generation** — given an API specification, uses an LLM to generate a test suite, then validates it through compilation, execution, and fault simulation. Tests that pass but fail to catch injected faults are revised automatically until they meet a configurable detection threshold.
-
-The two capabilities compose: the simulation loop is the quality gate for generated tests.
-
----
-
-## Table of Contents
-
-- [How it works](#how-it-works)
-- [Fault Simulation](#fault-simulation)
-  - [What gets mutated](#what-gets-mutated)
-  - [Configuration](#configuration)
-  - [Invariants DSL](#invariants-dsl)
-  - [Running fault simulation](#running-fault-simulation)
-  - [Reports](#reports)
-- [AI Test Generation](#ai-test-generation)
-  - [Generation loop](#generation-loop)
-  - [CLI usage](#cli-usage)
-- [Installation](#installation)
-- [CI/CD](#cicd)
-- [Architecture](#architecture)
-- [Troubleshooting](#troubleshooting)
+The declared properties — **invariants** — are semantic constraints on responses (`price > 0`,
+`status in [PENDING, FILLED]`, `status == FILLED ⇒ filled_at != null`). They play the role of the
+oracle: the generator never observes them directly, only the aggregate count of properties its suite
+failed to guard.
 
 ---
 
-## How it works
+## Method
 
-### Fault simulation alone
+### Invariants as the oracle
 
-You write tests normally. Antigen intercepts HTTP responses through AspectJ bytecode weaving — no changes to your test code needed. When `-DrunWithAntigen=true`, after each test passes its baseline run, Antigen replays it against mutated responses and records whether the test catches each violation.
+An invariant is a property that must hold on the responses of a given endpoint. Invariants are
+authored as committed YAML, independently of the tests, and Antigen loads every invariant that matches
+an endpoint the suite exercises. They are the specification of *what to verify*; the generated tests
+are one realization of *how to verify it*.
+
+### Property-based fault simulation
+
+Fault simulation is the evaluation procedure. Classical property-based testing generates inputs and
+checks that a property holds; Antigen inverts this. It holds the recorded request/response fixtures
+fixed and instead **negates** each declared property to produce a concrete counterexample — a mutated
+response body that violates the invariant — then replays the affected test against that body:
 
 ```
-for each test that exercises endpoint E:
-    baseline = run test, capture response
-    for each contract fault (null_field, missing_field, ...):
-        for each field in response:
-            inject fault → re-run test → record caught / escaped
-    for each invariant defined on E:
-        generate value that violates the constraint
-        re-run test → record caught / escaped
+for each test:
+    run once, recording every request/response pair            (baseline)
+    for each recorded response, for each invariant on its endpoint:
+        derive a response that violates the invariant           (negation)
+        replay the test against the mutated response
+            test now fails → caught   (the suite's assertions detect the violation)
+            test still passes → escaped (an assertion gap)
 ```
 
-Tests that pass despite injected faults reveal assertion gaps.
+This is mutation analysis applied to response data rather than program source, with the mutation
+operators derived systematically from the invariants: `> 0` yields the counterexamples `0` and `-1`;
+`in [A, B]` yields a value outside the set; `is_not_null` yields `null`. Mutations are served from the
+cached baseline, so no network calls occur during replay and server state is never altered. The result
+is a detection rate reported per test, per endpoint, and per invariant.
 
-### AI generation + simulation
+### The generation loop
+
+Generation is driven by an LLM (the `claude` CLI) and closed over by the simulator:
 
 ```
 for attempt in 1..max_retries:
-    1. Claude generates test suite from OpenAPI spec
-    2. Build — fix compilation errors with Claude, retry
-    3. Run tests — fix test failures with Claude, retry
-    4. Run tests with fault simulation
-       → if all faults caught: done
-       → if faults escaped: feed report back to Claude, retry
+    generate tests from the specification
+    build        → on failure, return compiler diagnostics, retry
+    run tests    → on failure, return test failures, retry
+    fault-simulate the passing suite
+        detection rate ≥ threshold → accept
+        detection rate < threshold → return an aggregate escape count, retry
 ```
 
-The generation loop does not stop when tests pass. It stops when tests pass *and* catch all simulated faults.
+The loop does not terminate when the suite compiles and passes; it terminates when the suite
+additionally detects at least `fault_detection_threshold` of the injected faults. A threshold below 1.0
+is deliberate: some invariants are not derivable from the specification the generator
+is given (see Limitations), so an unreachable 100% target would never converge.
+
+### Independence of derivation
+
+The reinforcement signal is only valid if the tests and the invariants are derived from **different
+sources**. If the generator could observe which faults were injected, it would fit assertions to those
+specific faults, and the detection rate would measure overfitting rather than verification coverage.
+Antigen enforces the separation structurally:
+
+- the generator conditions its assertions on the API specification alone;
+- the injected faults, the invariant names, and the mutated values are withheld — feedback is a bare
+  escape count — and the simulation report is written outside the generator's workspace.
+
+A corollary serves as a diagnostic: a detection rate close to 100% on a suite derived from the same
+context as the invariants is evidence that the two were not independent, and that the metric is
+measuring agreement rather than correctness.
+
+### Limitations of the claim
+
+Antigen measures one property: whether the suite's assertions encode the declared invariants. It does
+not establish that the invariant set is complete, nor that behavior outside the declared invariants is
+correct. As in mutation testing, a high detection rate means the suite catches the faults that were
+injected, not that the suite is adequate in general.
+
+Relational and temporal invariants (`created_at <= updated_at`) are a specific case worth stating
+precisely. They are perfectly checkable — a test can read both fields and compare them — but an
+OpenAPI schema describes each field independently and cannot state the relationship between two of
+them. A suite the generator derives from the specification alone therefore has no basis to assert it,
+and the invariant escapes. This is the independence property in action rather than a defect: the
+invariant encodes domain knowledge the specification omits, so a spec-conditioned suite does not guard
+it, whereas a domain-aware hand-written suite can. (A secondary obstacle is idiomatic: RestAssured's
+inline body matchers operate on one field at a time, so a cross-field check must extract both values
+and compare them explicitly.) Distinguishing invariants that a spec-derived suite cannot reasonably be
+expected to catch from genuine assertion gaps, when computing the denominator, is future work.
 
 ---
 
-## Fault Simulation
+## Standalone fault simulation
 
-### What gets mutated
+The simulator is usable on its own, independently of generation, to evaluate any existing suite —
+including one written by hand — against the same invariants. This is the generation objective function
+run in isolation: no tests are produced, the recorded suite is simply graded and reported.
 
-**Contract faults** — structural mutations applied to every field in the response:
+```bash
+./gradlew test                          # normal run, no simulation
+./gradlew test -DrunWithAntigen=true    # fault-simulate the existing suite
+```
 
-| Fault type | Mutation | Catches |
-|---|---|---|
-| `null_field` | Set field to `null` | `assertNotNull`, null checks |
-| `missing_field` | Remove field from JSON | field existence checks |
-| `empty_list` | Replace array with `[]` | size assertions |
-| `empty_string` | Replace string with `""` | non-empty checks |
-
-**Invariant faults** — semantic mutations derived from your invariant definitions:
-
-| Invariant | Generated mutation |
-|---|---|
-| `price > 0` | inject `0`, `-1` |
-| `status in [PENDING, FILLED]` | inject `"DELETED"`, `""` |
-| `created_at <= updated_at` | inject `updated_at` one second before `created_at` |
-| `filled_order_has_filled_at` (conditional) | inject `filled_at: null` when `status == FILLED` |
-
-The invariant defines the semantic boundary. The mutation crosses it. This is the PBT falsification idea applied to API response data rather than function inputs.
+AspectJ weaving intercepts HTTP responses at load time, so no changes to test code are required. The
+same independence caveat applies: the evaluation is meaningful to the extent the invariants were
+derived separately from the suite under evaluation.
 
 ---
 
-### Configuration
+## Invariants
 
-All configuration lives in `src/test/resources/antigen/`:
-
-```
-src/test/resources/antigen/
-├── contract.yml                        # fault types, exclusions, simulation settings
-├── antigen.properties                  # API key (optional, for cloud config)
-├── coverage_config.yml                 # coverage tracking (optional)
-└── simulation/invariants/              # invariants, one file per domain
-    ├── orders.yml
-    ├── accounts.yml
-    └── auth.yml
-```
-
-#### contract.yml
+Invariants live in committed YAML under `src/test/resources/antigen/simulation/invariants/`, one file
+per domain. Antigen loads every `.yml` in that directory and applies each invariant to any test that
+exercises its endpoint; no explicit test-to-invariant mapping is required.
 
 ```yaml
-version: "1.0"
-
-settings:
-  default_quantifier: all       # for array fields: all | any | none
-  stop_on_first_catch: true     # skip further simulation once any test catches a fault
-
-contract:
-  null_field:
-    enabled: true
-  missing_field:
-    enabled: true
-  empty_list:
-    enabled: false
-  empty_string:
-    enabled: false
-
-exclusions:
-  urls:
-    - '*/health*'
-    - '*/actuator/*'
-  tests:
-    - '*SmokeTest*'
-
-simulation:
-  only_success_responses: true
-  skip_collections_response: true
-  min_response_fields: 1
-  skip_if_contains_fields:
-    - error
-    - message
-```
-
-#### Invariant files
-
-Invariant files define business rules grouped by domain. Antigen loads all `.yml` files from `antigen/simulation/invariants/` automatically.
-
-```yaml
-# src/test/resources/antigen/simulation/invariants/orders.yml
-
+# simulation/invariants/orders.yml
 name: Order Lifecycle
-description: >
-  Status transitions, price constraints, and temporal ordering.
+description: Status transitions, quantity/price constraints, temporal ordering.
 
 invariants:
   /api/v1/orders/{id}:
@@ -165,298 +142,142 @@ invariants:
           field: status
           in: [PENDING, FILLED, REJECTED, CANCELLED]
 
+        # conditional: the `then` clause is evaluated (and negated) only when `if` holds
         - name: filled_order_has_timestamp
-          if:
-            field: status
-            equals: FILLED
-          then:
-            field: filled_at
-            is_not_null: true
+          if:   { field: status,    equals: FILLED }
+          then: { field: filled_at, is_not_null: true }
 
+        # cross-field reference: checkable, but absent from the OpenAPI schema, so a
+        # spec-derived suite has no basis to assert it and tends to miss it
         - name: created_before_filled
-          if:
-            field: filled_at
-            is_not_null: true
-          then:
-            field: created_at
-            less_than_or_equal: $.filled_at
+          if:   { field: filled_at,   is_not_null: true }
+          then: { field: created_at,  less_than_or_equal: $.filled_at }
 
-  /api/v1/orders:
+  /api/v1/orders:            # array response: $[*] quantifies over elements
     GET:
       invariants:
         - name: all_orders_positive_quantity
           field: $[*].quantity
           greater_than: 0
-
-    POST:
-      invariants:
-        - name: new_order_valid_status
-          field: status
-          in: [PENDING, FILLED, REJECTED]
 ```
 
-By default an invariant applies to **any test that exercises the matching endpoint** — no test mapping required. To narrow the scope, add `include_only` at the file level (applies to all invariants in the file) or on an individual invariant (overrides the file-level scope):
+**Operators:** `equals`, `not_equals`, `greater_than(_or_equal)`, `less_than(_or_equal)` (numeric or
+cross-field via `$.other_field`), `in`, `not_in`, `is_null`, `is_not_null`, `is_empty`, `is_not_empty`.
+Array fields use `$[*].field`; `default_quantifier` (`all` | `any` | `none`) sets their evaluation mode.
+
+Each operator admits a mechanical negation, which is what turns a property into a counterexample. A
+construct is admissible only if it can be inverted into a violating response — the operator set grows
+no faster than the negation procedure can support it.
+
+**Scoping.** To restrict an invariant to specific tests, add `include_only` at the file or invariant
+level:
 
 ```yaml
         - name: token_type_bearer
           field: token_type
           equals: bearer
-          include_only:                 # only measured against these tests
+          include_only:
             - class: com.example.AuthApiTest
-              methods:
-                - testLogin
-```
-
-Invariant files are additive — invariants from every file that matches an endpoint are merged.
-
-#### antigen.properties
-
-Required only when using the cloud API for fault strategies.
-
-```properties
-# src/test/resources/antigen/antigen.properties
-antigen.api.key=ant_proj_xxxxxxxxxxxxx
-antigen.project.id=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-antigen.api.url=http://localhost:8080
-
-# Force local mode even if API key is present
-io.antigen.core.config.source=local
-```
-
-Config source priority: system property `io.antigen.core.config.source` → env var `ANTIGEN_CONFIG_SOURCE` → `antigen.properties` → auto-detect.
-
-#### coverage_config.yml
-
-```yaml
-# src/test/resources/antigen/coverage_config.yml
-coverage:
-  enabled: true
-  output_file: schema_coverage.json
-  urls:
-    - http://localhost:8080   # empty = track all URLs
-  include_request_body: true
-  include_response_body: false
-  aggregate_by_pattern: true
-  gap_analysis:
-    enabled: true
-    openapi_spec_path: api-spec.yaml
-    output_file: gap_analysis.json
+              methods: [testLogin]
 ```
 
 ---
 
-### Invariants DSL
+## Configuration
 
-#### Operators
+All configuration lives under `src/test/resources/antigen/`:
 
-| Operator | Description | Example |
-|---|---|---|
-| `equals` | Exact match | `equals: "ACTIVE"` |
-| `not_equals` | Not equal | `not_equals: "DELETED"` |
-| `greater_than` | Numeric `>` | `greater_than: 0` |
-| `greater_than_or_equal` | Numeric `>=` | `greater_than_or_equal: 0` |
-| `less_than` | Numeric `<` | `less_than: 100` |
-| `less_than_or_equal` | Numeric `<=`, or cross-field | `less_than_or_equal: $.updated_at` |
-| `in` | Value in set | `in: [BUY, SELL]` |
-| `not_in` | Value not in set | `not_in: [DELETED, ARCHIVED]` |
-| `is_null` | Must be null | `is_null: true` |
-| `is_not_null` | Must not be null | `is_not_null: true` |
-| `is_empty` | Must be empty | `is_empty: true` |
-| `is_not_empty` | Must not be empty | `is_not_empty: true` |
-
-#### Cross-field references
-
-```yaml
-- name: created_before_updated
-  field: created_at
-  less_than_or_equal: $.updated_at
+```
+antigen/
+├── antigen.properties              # config source selection (e.g. io.antigen.core.config.source=local)
+├── simulation/
+│   ├── config.yml                  # simulation scoping & gating (NOT invariants)
+│   ├── coverage_config.yml         # optional endpoint coverage + spec gap analysis
+│   └── invariants/*.yml            # the invariants (the oracle)
+└── generation/
+    ├── config.yml                  # generation loop: spec path, model, threshold, timeouts
+    ├── api-specs.yaml              # the OpenAPI specification fed to the generator
+    └── prompt.txt                  # optional additional generation guidance
 ```
 
-#### Array fields
+`simulation/config.yml` scopes and gates fault injection; it does not define invariants and does not
+configure generation. Precedence is most-specific-wins for settings, additive union for exclusions:
+method `<Class>.antigen.yml` › class `<Class>.antigen.yml` › this file › built-in default.
 
 ```yaml
-- name: all_prices_positive
-  field: $[*].price
-  greater_than: 0
-```
-
-`default_quantifier` controls evaluation: `all` (default), `any`, or `none`.
-
-#### Conditional invariants
-
-```yaml
-- name: shipped_order_has_tracking
-  if:
-    field: status
-    equals: SHIPPED
-  then:
-    field: tracking_number
-    is_not_empty: true
-```
-
-The `if` precondition is evaluated first; the `then` clause is only checked (and mutated) when the precondition holds.
-
-#### Per-test overrides
-
-Place a `.antigen.yml` file alongside your test class to override settings for that class or specific methods:
-
-```yaml
-# src/test/resources/antigen/com.example.OrdersApiTest.antigen.yml
-version: "1.0"
-
+# simulation/config.yml
+exclusions:
+  endpoints:                        # glob, full-matched against the request path, applied per response
+    - "*/accounts*"
 settings:
-  stop_on_first_catch: false
-
-contract:
-  null_field:
-    enabled: false      # disable for this class
-
-tests:
-  testGetOrder:
-    contract:
-      missing_field:
-        enabled: true   # re-enable for this method only
-    endpoints:
-      /api/v1/orders/{id}:
-        GET:
-          invariants:
-            - name: local_only_check
-              field: internal_id
-              greater_than: 0
+  default_quantifier: all           # all | any — how array-field invariants quantify
+  stop_on_first_catch: false        # stop mutating an endpoint once one fault is caught
+simulation:
+  only_success_responses: true      # skip non-2xx
+  skip_collections_response: true   # skip top-level JSON arrays
+  min_response_fields: 1            # skip responses with fewer than N fields
 ```
+
+Endpoint exclusions apply **per recorded response**: a test that creates an account and then places an
+order still has its `/orders` response mutated while `/accounts` is skipped.
 
 ---
 
-### Running fault simulation
+## Usage
+
+Add the plugin and adapter (see [Installation](#installation)). To generate a suite from the
+specification, requiring the `claude` CLI on PATH:
 
 ```bash
-# normal test run — no simulation
-./gradlew test
-
-# with fault simulation
-./gradlew test -DrunWithAntigen=true
-
-# specific test classes
-./gradlew test --tests "com.example.*" -DrunWithAntigen=true
+./gradlew generateTests                             # spec/model/threshold from generation/config.yml
+./gradlew generateTests -Pspec=path/to/openapi.yaml # override the spec
 ```
 
-The AspectJ agent is attached automatically when `-DrunWithAntigen=true` (see [Installation](#installation)).
+Or invoke the CLI directly:
+
+```bash
+antigen generate --spec openapi.yaml --project . [--max-retries 5] [--model sonnet] [--verbose]
+```
+
+Exit `0` = detection threshold met; `1` = threshold missed or retries exhausted. Generated tests are
+written to `src/test/java/generated/`. To fault-simulate an existing suite instead, see
+[Standalone fault simulation](#standalone-fault-simulation).
 
 ---
 
-### Reports
+## Reports
 
-After a simulation run, three reports are written to the project root:
+A simulation run writes to the project root:
 
-**`antigen_report.html`** — interactive browser report with tabs:
-- **Summary** — overall detection rate, escaped vs caught counts
-- **Fault Simulation** — per-endpoint breakdown of contract and invariant faults
-- **Test Matrix** — 2D grid of tests × faults
-- **Coverage** — endpoint coverage with HTTP call logs
-- **Gap Analysis** — OpenAPI spec endpoints not covered by any test
-
-**`fault_simulation_report.json`**:
-
-```json
-{
-  "/api/v1/orders/{id}": {
-    "contractFaultCount": 8,
-    "contractFaultsCaught": 6,
-    "invariantFaultCount": 4,
-    "invariantFaultsCaught": 3,
-    "contract_faults": {
-      "null_field": {
-        "status": {
-          "caught_by_any_test": true,
-          "tested_by": ["OrdersApiTest.testGetOrder"],
-          "caught_by": [{ "test": "OrdersApiTest.testGetOrder", "caught": true }]
-        }
-      }
-    },
-    "invariant_faults": {
-      "filled_order_has_timestamp": {
-        "caught_by_any_test": false,
-        "tested_by": ["OrdersApiTest.testGetOrder"],
-        "caught_by": []
-      }
-    }
-  }
-}
-```
-
-`caught_by_any_test: false` is a test quality gap — no test detected that violation.
-
-**Console summary** printed after all simulations complete:
+- **`antigen_report.html`** — summary, per-endpoint fault breakdown, a tests × faults matrix, endpoint
+  coverage, and specification gap analysis.
+- **`fault_simulation_report.json`** — machine-readable; `"caught_by_any_test": false` on an invariant
+  marks an assertion gap.
+- **Console summary** — caught / total / escaped per test.
 
 ```
 ============================================================
-  Antigen -- Simulation Run Summary
+  Antigen — Simulation Run Summary
 ============================================================
   Test                          Caught   Total   Escaped
 ------------------------------------------------------------
   OrdersApiTest.testGetOrder      8        12      4
   AuthApiTest.testLogin           3         3      0
 ------------------------------------------------------------
-  TOTAL                          11        15      4
-============================================================
 ```
 
----
-
-## AI Test Generation
-
-### Generation loop
-
-Requires [Claude Code](https://claude.ai/code) (`claude` CLI) on PATH.
-
-```
-antigen generate --spec openapi.yaml --project ./my-project
-```
-
-Internally:
-
-```
-attempt 1..max-retries:
-  → Claude generates tests in generated/ package
-  → ./gradlew clean compileTestJava
-       failure → send compilation errors to Claude, retry
-  → ./gradlew test --tests "generated.*"
-       failure → send test failures to Claude, retry
-  → ./gradlew test --tests "generated.*" -DrunWithAntigen=true
-       all faults caught → done
-       faults escaped    → send fault_simulation_report.json to Claude, retry
-```
-
-Claude reads the fault report and adds or strengthens assertions for each escaped fault. The loop terminates when the generated tests pass and catch all simulated faults, or when `--max-retries` is exhausted.
-
-### CLI usage
-
-```
-antigen generate \
-  --spec path/to/openapi.yaml \
-  --project path/to/java-project \
-  [--requirements "must test pagination" --requirements "cover 401 responses"] \
-  [--requirements-file requirements.json] \
-  [--max-retries 5] \
-  [--timeout-antigen 30] \
-  [--timeout-build 5] \
-  [--timeout-test 10] \
-  [--verbose]
-
-antigen version
-```
-
-The target project must already have Antigen on its test classpath and `antigen/contract.yml` configured. Generated tests are written to `src/test/java/generated/`.
-
-**Exit codes:** `0` = all faults caught, `1` = faults escaped or max retries reached.
+During generation the report is written in JSON-only mode to a temporary path outside the generator's
+workspace, so the injected faults do not leak into the loop. A zero-fault or missing report is treated
+as an error, never as a pass.
 
 ---
 
 ## Installation
 
-### 1. Add repository
+Published via JitPack as git tags `vX.Y` on `integral-testing/antigen`. This is a **multi-module**
+build, so the coordinate is `com.github.<owner>.<repo>:<module>:<tag>`.
 
-**settings.gradle.kts:**
+**settings.gradle.kts**
 ```kotlin
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -467,218 +288,73 @@ dependencyResolutionManagement {
 }
 ```
 
-### 2. Add dependency
-
-**build.gradle.kts:**
+**build.gradle.kts**
 ```kotlin
-dependencies {
-    testImplementation("com.github.your-org:antigen:1.0.0-SNAPSHOT")
-
-    // required
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testImplementation("io.rest-assured:rest-assured:5.5.0")
-}
-```
-
-### 3. Configure the AspectJ agent
-
-**build.gradle.kts:**
-```kotlin
-tasks.test {
-    useJUnitPlatform()
-
-    doFirst {
-        val runWithAntigen = System.getProperty("runWithAntigen") == "true"
-        jvmArgs("-DrunWithAntigen=$runWithAntigen")
-
-        if (runWithAntigen) {
-            val agent = configurations.runtimeClasspath.get()
-                .find { it.name.contains("aspectjweaver") }?.absolutePath
-            if (agent != null) {
-                jvmArgs("-javaagent:$agent")
-            }
-        }
+buildscript {
+    repositories { maven { url = uri("https://jitpack.io") } }
+    dependencies {
+        // the io.antigen Gradle plugin, from the antigen-cli module
+        classpath("com.github.integral-testing.antigen:antigen-cli:v0.9")
     }
 }
+apply(plugin = "io.antigen")
+
+dependencies {
+    // the JVM adapter; pulls in the engine transitively
+    testImplementation("com.github.integral-testing.antigen:antigen-test-runner:v0.9")
+    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("io.rest-assured:rest-assured:5.5.6")
+}
 ```
 
-### 4. Create configuration
+The `io.antigen` plugin attaches the AspectJ weaver automatically when `-DrunWithAntigen=true`. For
+local development against unpublished changes, add `mavenLocal()` and swap the coordinates to
+`io.antigen:<module>:1.0.0-SNAPSHOT` (published with `./gradlew publishToMavenLocal`).
 
-**`src/test/resources/antigen/contract.yml`:**
-```yaml
-version: "1.0"
-
-settings:
-  default_quantifier: all
-  stop_on_first_catch: true
-
-contract:
-  null_field:
-    enabled: true
-  missing_field:
-    enabled: true
-```
-
-**`src/test/resources/antigen/simulation/invariants/my-api.yml`:**
-```yaml
-name: My API
-
-invariants:
-  /api/users/{id}:
-    GET:
-      invariants:
-        - name: user_has_email
-          field: email
-          is_not_empty: true
-
-        - name: valid_status
-          field: status
-          in: [ACTIVE, SUSPENDED, PENDING]
-```
-
----
-
-## CI/CD
-
-```yaml
-# .github/workflows/antigen.yml
-name: Antigen CI
-
-on: [push, pull_request]
-
-jobs:
-  unit_tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { java-version: '18', distribution: 'temurin' }
-      - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew
-      - run: ./gradlew test --tests "com.example.unit.*" -DrunWithAntigen=false
-
-  integration_tests:
-    needs: unit_tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with: { java-version: '18', distribution: 'temurin' }
-      - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew
-      - run: ./gradlew test --tests "com.example.integration.*" -DrunWithAntigen=true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: antigen-reports
-          path: |
-            fault_simulation_report.json
-            antigen_report.html
-            schema_coverage.json
-```
+A complete working setup lives in the [antigen-example](https://github.com/integral-testing/antigen-example)
+repository.
 
 ---
 
 ## Architecture
 
-```
-src/main/java/io/antigen/
-├── core/
-│   ├── interceptor/       AspectJ weaving — @Test and HTTP client interception
-│   ├── config/            Configuration loading and merging
-│   │   ├── LocalConfigurationSource    reads antigen/contract.yml
-│   │   ├── ApiConfigurationSource      fetches from cloud API
-│   │   ├── FeatureConfigScanner        loads antigen/simulation/invariants/*.yml
-│   │   ├── ConfigResolver              merges global + feature + per-class + per-method
-│   │   └── TestScopedConfigLoader      loads <ClassName>.antigen.yml
-│   ├── injection/         Fault injection strategies (null, missing, empty)
-│   ├── invariant/         Invariant evaluation and violation generation
-│   ├── simulation/        Simulation runner and report aggregation
-│   ├── coverage/          Endpoint coverage tracking
-│   ├── analytics/         Gap analysis against OpenAPI spec
-│   ├── report/            HTML report generation
-│   └── api/               Cloud API client
-└── ai/
-    ├── Antigen.java        PicoCLI entry point
-    ├── orchestrator/       Generation loop (Orchestrator, AntigenConfig)
-    ├── llm/                Claude invocation (ClaudeGenerator, PromptBuilder)
-    ├── runners/            Gradle subprocess execution
-    ├── phases/             Phase result types (BuildPhase, TestPhase, AntigenPhase)
-    ├── feedback/           Error parsing for Claude feedback
-    ├── model/              Domain types (EscapedFault, GenerationResult)
-    └── config/             YAML config for the CLI (antigen.yml)
-```
+Three modules around one engine:
 
-### AspectJ interception
+| Module | Role |
+|---|---|
+| `antigen-engine` | The simulator: negates invariants into mutations, scores caught vs. escaped, renders reports. No AspectJ / JUnit / HTTP dependencies. |
+| `antigen-test-runner` | JVM adapter: AspectJ interception, baseline recording, mutated-response replay, pass/fail reporting. |
+| `antigen-cli` | The generation loop and the `io.antigen` Gradle plugin. |
 
-Antigen weaves two pointcuts at load time:
-
-- `@Around("execution(@org.junit.jupiter.api.Test * *(..))")` — wraps each `@Test` method to establish context and trigger simulation after baseline passes
-- `@Around("execution(* org.apache.http.impl.client.CloseableHttpClient.execute(..))")` — intercepts Apache HttpClient to capture and replay requests with mutated responses
-
-Weaving requires `-javaagent:aspectjweaver.jar` and `src/main/resources/META-INF/aop.xml` on the classpath.
-
----
-
-## Performance
-
-Simulation time scales with: `tests × response fields × enabled fault types × invariants per endpoint`.
-
-Practical controls:
-- `stop_on_first_catch: true` — skip a fault once any test catches it (faster, less detail)
-- `simulation.only_success_responses: true` — skip error responses
-- `simulation.skip_collections_response: true` — skip array responses (invariant simulation on arrays is typically not useful)
-- `simulation.min_response_fields: N` — skip sparse responses
-- `exclusions.tests` — exclude slow or noisy test classes
-
----
-
-## Troubleshooting
-
-**No simulation output**
-
-Verify `-DrunWithAntigen=true` is passed and the AspectJ agent attached. Look for `[Antigen] Fault simulation enabled — agent: ...` in Gradle output.
-
-**`No contract.yml found`**
-
-File must be at `src/test/resources/antigen/contract.yml`.
-
-**Invariants not appearing in report**
-
-Confirm the test actually calls the endpoint the invariant is keyed on (matching is by endpoint, automatically). If you used `include_only`, check that `class` is the fully-qualified name (`com.example.OrdersApiTest`, not `OrdersApiTest`).
-
-**`ConnectException` to `localhost:8080` on startup**
-
-An API key is present in `antigen.properties` and the config source auto-detected to API mode. Add `io.antigen.core.config.source=local` to force local mode.
-
-**`advice defined in AspectExecutor has not been applied`**
-
-This warning appears during compile-time weaving when no test classes are being woven at that point (they're woven at load time instead). It is not an error.
+Two pointcuts are woven at load time (requires `-javaagent:aspectjweaver.jar`): one wraps each `@Test`
+method to establish context and trigger simulation after the baseline passes; one intercepts Apache
+HttpClient to record and replay responses. See [`docs/knowledge/`](docs/knowledge/v2/idea_update.md)
+for the design rationale, the engine/adapter split, and the roadmap.
 
 ---
 
 ## Requirements
 
-- Java 17+
-- Gradle 7.3+
+- Java 17+, Gradle 7.3+
 - JUnit 5 (Jupiter)
 - Apache HttpClient (via RestAssured or direct)
-- Claude Code CLI on PATH (AI generation only)
-
----
+- `claude` CLI on PATH (generation only)
 
 ## Building from source
 
 ```bash
-git clone https://github.com/your-org/antigen.git
+git clone https://github.com/integral-testing/antigen.git
 cd antigen
 ./gradlew build
 ./gradlew publishToMavenLocal
-
-# run unit tests only
-./gradlew test --tests "io.antigen.core.unit.*" -DrunWithAntigen=false
-
-# run integration tests with simulation
-./gradlew test --tests "io.antigen.core.integration.*" -DrunWithAntigen=true
 ```
+
+## Troubleshooting
+
+- **No simulation output** — confirm `-DrunWithAntigen=true` and that the AspectJ agent attached.
+- **Invariants missing from the report** — the test must call the invariant's endpoint (matching is by
+  endpoint). With `include_only`, `class` must be fully qualified.
+- **`ConnectException` to `localhost:8080` on startup** — a config API key was auto-detected; set
+  `io.antigen.core.config.source=local` in `antigen.properties`.
+- **`advice ... has not been applied`** — benign; test classes are woven at load time, not compile time.
