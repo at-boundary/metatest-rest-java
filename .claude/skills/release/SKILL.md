@@ -9,8 +9,8 @@ Publishes Antigen via a git tag (JitPack builds from the tag) and points antigen
 Tagging and pushing are outward-facing and hard to undo — **confirm the version with the user
 before tagging**, and never tag on a failing gate.
 
-Tags follow `vX.Y` (latest published: `v0.6`). The GitHub org is **`antigen-labs`**; the
-JitPack coordinate is `com.github.antigen-labs:antigen:<tag>`.
+Tags follow `vX.Y` (latest published: `v0.6`). The GitHub org is **`integralquality`**; the
+JitPack coordinate is `com.github.integralquality:antigen:<tag>`.
 
 ## 1. Pre-flight
 
@@ -47,10 +47,10 @@ Update **both** coordinates in `../antigen-example/build.gradle.kts` (buildscrip
 ~line 7 and `testImplementation` ~line 25):
 
 ```
-com.github.antigen-labs:antigen:v0.7
+com.github.integralquality:antigen:v0.7
 ```
 
-Commit and push antigen-example (its remote is `git@github.com:antigen-labs/antigen-example.git`).
+Commit and push antigen-example (its remote is `git@github.com:integralquality/antigen-example.git`).
 
 ## 5. Verify against JitPack
 

@@ -83,10 +83,10 @@ Recurrent traps in Antigen development and their fixes. Format: **Symptom → Ca
 
 ## JitPack doesn't pick up a new tag / example won't resolve
 
-- **Symptom:** the example fails to resolve `com.github.antigen-labs:antigen:vX.Y`.
+- **Symptom:** the example fails to resolve `com.github.integralquality:antigen:vX.Y`.
 - **Cause:** the first resolution of a new tag triggers a JitPack build (~2 min); a cached
   failed resolution can also stick.
-- **Fix:** wait for the first build; use `--refresh-dependencies`. The org is `antigen-labs`.
+- **Fix:** wait for the first build; use `--refresh-dependencies`. The org is `integralquality`.
 
 ## `scripts/publish-tag.sh` is broken
 

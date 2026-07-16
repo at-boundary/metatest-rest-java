@@ -274,7 +274,7 @@ as an error, never as a pass.
 
 ## Installation
 
-Published via JitPack as git tags `vX.Y` on `integral-testing/antigen`. This is a **multi-module**
+Published via JitPack as git tags `vX.Y` on `integralquality/antigen`. This is a **multi-module**
 build, so the coordinate is `com.github.<owner>.<repo>:<module>:<tag>`.
 
 **settings.gradle.kts**
@@ -294,14 +294,14 @@ buildscript {
     repositories { maven { url = uri("https://jitpack.io") } }
     dependencies {
         // the io.antigen Gradle plugin, from the antigen-cli module
-        classpath("com.github.integral-testing.antigen:antigen-cli:v0.9")
+        classpath("com.github.integralquality.antigen:antigen-cli:v0.9")
     }
 }
 apply(plugin = "io.antigen")
 
 dependencies {
     // the JVM adapter; pulls in the engine transitively
-    testImplementation("com.github.integral-testing.antigen:antigen-test-runner:v0.9")
+    testImplementation("com.github.integralquality.antigen:antigen-test-runner:v0.9")
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.rest-assured:rest-assured:5.5.6")
@@ -312,7 +312,7 @@ The `io.antigen` plugin attaches the AspectJ weaver automatically when `-DrunWit
 local development against unpublished changes, add `mavenLocal()` and swap the coordinates to
 `io.antigen:<module>:1.0.0-SNAPSHOT` (published with `./gradlew publishToMavenLocal`).
 
-A complete working setup lives in the [antigen-example](https://github.com/integral-testing/antigen-example)
+A complete working setup lives in the [antigen-example](https://github.com/integralquality/antigen-example)
 repository.
 
 ---
@@ -344,7 +344,7 @@ for the design rationale, the engine/adapter split, and the roadmap.
 ## Building from source
 
 ```bash
-git clone https://github.com/integral-testing/antigen.git
+git clone https://github.com/integralquality/antigen.git
 cd antigen
 ./gradlew build
 ./gradlew publishToMavenLocal

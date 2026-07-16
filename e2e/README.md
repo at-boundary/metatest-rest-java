@@ -1,6 +1,6 @@
 # antigen-example — Example Project
 
-A working example of [Antigen](https://github.com/antigen-labs/antigen) running fault simulation against a real stock trading API.
+A working example of [Antigen](https://github.com/integralquality/antigen) running fault simulation against a real stock trading API.
 
 The example covers authentication, accounts, orders, positions, stocks, and trades — with invariants intentionally ranging from well-covered to completely blind, so the Test Matrix shows a realistic spread of caught and escaped faults.
 
@@ -16,7 +16,7 @@ The example covers authentication, accounts, orders, positions, stocks, and trad
 
 ## Step 1 — Start the demo API
 
-The tests run against [oms-demo-api](https://github.com/antigen-labs/oms-demo-api), a Python/FastAPI trading simulator.
+The tests run against [oms-demo-api](https://github.com/integralquality/oms-demo-api), a Python/FastAPI trading simulator.
 
 ```bash
 cd oms-demo-api
@@ -152,6 +152,6 @@ curl -X POST http://localhost:8000/api/v1/auth/register \
 
 ## Further reading
 
-- [Antigen README](https://github.com/antigen-labs/antigen) — invariants DSL reference, full configuration options, how fault simulation and AI test generation work
-- [oms-demo-api README](https://github.com/antigen-labs/oms-demo-api) — full API documentation, endpoint reference, Postman collection
+- [Antigen README](https://github.com/integralquality/antigen) — invariants DSL reference, full configuration options, how fault simulation and AI test generation work
+- [oms-demo-api README](https://github.com/integralquality/oms-demo-api) — full API documentation, endpoint reference, Postman collection
 </content>

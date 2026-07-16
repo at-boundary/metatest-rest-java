@@ -31,5 +31,5 @@ Read the relevant entry before working in an area; capture new findings with the
 
 - Invariants are committed YAML under `src/test/resources/antigen/simulation/invariants/`
   (`name:` per file, `include_only:` for scoping). Framework's own invariants are JUnit 5 + RestAssured.
-- The GitHub org is `antigen-labs`; releases are git tags `vX.Y` resolved via JitPack.
+- The GitHub org is `integralquality`; releases are git tags `vX.Y` resolved via JitPack.
 - Only commit/push when asked.

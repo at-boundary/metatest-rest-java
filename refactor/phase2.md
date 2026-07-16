@@ -112,7 +112,7 @@ engine.
 | `antigen-test-runner` | `antigen-test-runner` | interceptor (AspectJ/JUnit), runner (loop), `http.apache` (Apache impls), `Logger` | `api(engine)` |
 | `antigen-cli` | `antigen-cli` | `ai.*` + `io.antigen.gradle` plugin | `implementation(engine)` |
 
-Published under JitPack as `com.github.antigen-labs.antigen:<artifactId>:vX.Y`. The adapter is the
+Published under JitPack as `com.github.integralquality.antigen:<artifactId>:vX.Y`. The adapter is the
 artifact users consume; it exposes the engine transitively via `api`.
 
 ## What changed

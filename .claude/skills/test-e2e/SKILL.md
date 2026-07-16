@@ -19,7 +19,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:8000/api/v1/au
 
 - A `200` means it's up and the `test`/`test123` user exists — proceed.
 - Not reachable → start it: `cd oms-demo-api && docker-compose up --build` (repo:
-  `github.com/antigen-labs/oms-demo-api`).
+  `github.com/integralquality/oms-demo-api`).
 - `200` but login fails → register the user once:
   ```bash
   curl -X POST http://localhost:8000/api/v1/auth/register -H "Content-Type: application/json" \
