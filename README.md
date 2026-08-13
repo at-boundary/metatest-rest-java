@@ -1,6 +1,6 @@
 # Antigen
 
-> **AI slop docs since it's early and evolving research, will improve when things are more stable**
+> **AI slop docs since, will improve when things are more stable**
 
 Antigen is a test-generation harness for HTTP APIs, reinforced by property-based fault simulation.
 It generates a test suite from an API specification, then evaluates that suite by mutating HTTP
